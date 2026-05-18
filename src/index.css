@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #08090c;
+  --color-surface: #0e1015;
+  --color-surface-hover: #161920;
+  --color-surface-raised: #12141a;
+  
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-focus: rgba(255, 255, 255, 0.15);
+  
+  --color-text-primary: #ededed;
+  --color-text-secondary: #9499a6;
+  --color-text-tertiary: #6b7280;
+  
+  --color-accent-blue: #3b82f6;
+  --color-accent-green: #10b981;
+  --color-accent-red: #ef4444;
+  --color-accent-purple: #8b5cf6;
+  --color-accent-dim-blue: rgba(59, 130, 246, 0.15);
+}
+
+@layer base {
+  html, body {
+    @apply bg-canvas text-text-primary antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  h1, h2, h3 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+  
+  button {
+    @apply cursor-pointer;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Custom scrollbar for a native but invisible feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
