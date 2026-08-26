@@ -46,8 +46,11 @@ credential *presence*, never values. This is enforced by tests, not by conventio
 
 ## Architecture
 
-Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first. Decisions and their
-trade-offs are recorded in [`docs/adr/`](docs/adr/).
+Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first — it describes what the
+Core actually does today. [`docs/NEXUS_MASTER_SPEC.md`](docs/NEXUS_MASTER_SPEC.md)
+is the full long-term product specification, including a gap analysis of what the
+foundation still lacks. Decisions and their trade-offs are recorded in
+[`docs/adr/`](docs/adr/).
 
 The short version: a Supervisor coordinates specialised agents grouped into
 divisions. Agents own skills, reach the world only through permission-checked

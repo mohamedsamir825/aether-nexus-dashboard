@@ -2,6 +2,11 @@
 
 What exists, what comes next, and what is deliberately not built.
 
+This file holds **near-term sequencing**. The full 16-phase plan, and the product
+specification behind it, live in
+[`NEXUS_MASTER_SPEC.md`](NEXUS_MASTER_SPEC.md) — see its §25 (phases), §27 (gap
+analysis) and §28 (decisions pending).
+
 ## Done — the foundation
 
 - Core contracts: Agent, Skill, Tool, ModelProvider, ModelRouter, Supervisor,
