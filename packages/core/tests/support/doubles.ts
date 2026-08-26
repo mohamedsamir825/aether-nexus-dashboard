@@ -46,6 +46,8 @@ export interface StubProviderOptions {
   }[];
   /** Force generate() to fail, to exercise router fallback. */
   readonly failWith?: string;
+  /** Force a 429 carrying this Retry-After, to exercise backoff. */
+  readonly rateLimitedWith?: number;
   /** Force generate() to throw, to exercise adapter containment. */
   readonly throwWith?: string;
   readonly listModelsFails?: boolean;
@@ -85,6 +87,13 @@ export function stubProvider(options: StubProviderOptions): ModelProvider & { ca
       }
       calls.push(request.model);
       if (options.throwWith) throw new Error(options.throwWith);
+      if (options.rateLimitedWith !== undefined) {
+        return err(
+          nexusError('RATE_LIMITED', `${options.id} rate limited`, {
+            details: { retryAfterMs: options.rateLimitedWith },
+          }),
+        );
+      }
       if (options.failWith) {
         return err(nexusError('PROVIDER_UNAVAILABLE', options.failWith));
       }

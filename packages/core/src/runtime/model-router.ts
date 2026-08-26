@@ -24,6 +24,7 @@ import type {
 } from '../contracts/model-provider.ts';
 import type { Logger } from '../logger.ts';
 import { nullLogger } from '../logger.ts';
+import { type LimitTracker, unlimitedTracker } from './limits.ts';
 
 interface Candidate {
   readonly model: ModelDescriptor;
@@ -54,10 +55,22 @@ function rank(candidate: Candidate, policy: ModelSelectionPolicy): number {
   return 1_000_000;
 }
 
+export interface ModelRouterOptions {
+  readonly logger?: Logger;
+  /**
+   * Excludes providers that are at their rate limit or daily quota. Omitted
+   * means no limits are enforced -- correct for tests and for paid tiers with
+   * headroom, wrong for the free tiers NEXUS actually runs on (ADR 0011).
+   */
+  readonly limits?: LimitTracker;
+}
+
 export function createModelRouter(
   providers: ProviderRegistry,
-  logger: Logger = nullLogger,
+  options: ModelRouterOptions = {},
 ): ModelRouter {
+  const logger = options.logger ?? nullLogger;
+  const limits = options.limits ?? unlimitedTracker();
   async function candidates(policy: ModelSelectionPolicy): Promise<Result<Candidate[]>> {
     const configured = providers.list().filter((provider) => provider.isConfigured());
     if (configured.length === 0) {
@@ -68,8 +81,32 @@ export function createModelRouter(
       );
     }
 
+    // A provider at its limit is excluded from candidacy rather than called and
+    // failed: spending a request to learn it is rate limited wastes the very
+    // allowance being protected.
+    const withinLimits = configured.filter((provider) => limits.available(provider.id));
+    if (withinLimits.length === 0) {
+      const blocked = configured.map((provider) => {
+        const status = limits.status(provider.id);
+        return {
+          provider: provider.id,
+          reason: status.reason,
+          ...(status.retryAtMs !== undefined ? { retryAtMs: status.retryAtMs } : {}),
+        };
+      });
+      const soonest = blocked
+        .map((b) => b.retryAtMs)
+        .filter((t): t is number => t !== undefined)
+        .sort((a, b) => a - b)[0];
+      return err(
+        nexusError('RATE_LIMITED', 'every configured provider is at its rate limit or quota', {
+          details: { blocked, ...(soonest !== undefined ? { retryAtMs: soonest } : {}) },
+        }),
+      );
+    }
+
     const found: Candidate[] = [];
-    for (const provider of configured) {
+    for (const provider of withinLimits) {
       const models = await provider.listModels();
       if (!models.ok) {
         logger.log('warn', 'provider could not list models; skipping', {
@@ -122,18 +159,39 @@ export function createModelRouter(
       let lastError = nexusError('PROVIDER_UNAVAILABLE', 'no model attempt was made');
 
       for (const candidate of attempts) {
+        // Counted before dispatch: the provider counts the request whether or
+        // not it succeeds.
+        limits.recordAttempt(candidate.provider.id);
+
         try {
           const response = await candidate.provider.generate({
             ...request,
             model: candidate.model.id,
           });
-          if (response.ok) return response;
+          if (response.ok) {
+            limits.recordTokens(
+              candidate.provider.id,
+              response.value.usage.inputTokens + response.value.usage.outputTokens,
+            );
+            return response;
+          }
           lastError = response.error;
         } catch (cause) {
           // A provider adapter that throws is a broken adapter; contain it so
           // one bad vendor cannot take down the run.
           lastError = fromUnknown(cause, 'PROVIDER_UNAVAILABLE');
         }
+
+        if (lastError.code === 'RATE_LIMITED') {
+          // The provider knows its own window better than any local estimate,
+          // so its Retry-After wins when it supplies one.
+          const retryAfterMs = lastError.details?.['retryAfterMs'];
+          limits.recordRateLimited(
+            candidate.provider.id,
+            typeof retryAfterMs === 'number' ? retryAfterMs : undefined,
+          );
+        }
+
         logger.log('warn', 'model attempt failed', {
           provider: candidate.provider.id,
           model: candidate.model.id,

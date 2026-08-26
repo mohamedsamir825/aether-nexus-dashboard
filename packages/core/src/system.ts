@@ -24,6 +24,7 @@ import { createInMemoryEventBus } from './runtime/event-bus.ts';
 import { createPermissionEngine } from './runtime/permissions.ts';
 import { createInMemoryMemoryStore } from './runtime/memory.ts';
 import { createModelRouter } from './runtime/model-router.ts';
+import type { LimitTracker } from './runtime/limits.ts';
 import { type HealthRegistry, createHealthRegistry, healthCheck } from './runtime/health.ts';
 import { createSupervisor } from './runtime/supervisor.ts';
 import type { EventBus } from './contracts/events.ts';
@@ -59,6 +60,8 @@ export interface CreateSystemParams {
   readonly clock?: Clock;
   readonly logger?: Logger;
   readonly memory?: MemoryStore;
+  /** Enforces free-tier rate limits and quotas. Omitted means unenforced. */
+  readonly limits?: LimitTracker;
 }
 
 export function createNexusSystem(params: CreateSystemParams): NexusSystem {
@@ -75,7 +78,10 @@ export function createNexusSystem(params: CreateSystemParams): NexusSystem {
     providers: createProviderRegistry(),
   };
 
-  const models = createModelRouter(registries.providers, logger);
+  const models = createModelRouter(registries.providers, {
+    logger,
+    ...(params.limits ? { limits: params.limits } : {}),
+  });
   const health = createHealthRegistry(clock);
 
   health.register(healthCheck('memory', () => memory.health()));
