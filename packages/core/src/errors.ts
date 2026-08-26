@@ -11,6 +11,7 @@ export type NexusErrorCode =
   | 'PROVIDER_UNAVAILABLE'
   | 'UNSUPPORTED'
   | 'TIMEOUT'
+  | 'BUDGET_EXCEEDED'
   | 'CANCELLED'
   | 'INTERNAL';
 

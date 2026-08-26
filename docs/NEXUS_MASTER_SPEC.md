@@ -1029,8 +1029,9 @@ in a pull request.
 ## 27. Gap analysis: specification versus built foundation
 
 Reviewed against `packages/core` at commit `eb33906`. **This section is the true
-statement of what exists.** Nothing below has been implemented — no Core file was
-modified to produce this specification.
+statement of what exists.** The Phase 2 review itself modified no Core file;
+items marked ✅ below were subsequently fixed in Step 2 of the Phase 3–4 plan and
+are verified by tests.
 
 ### 27.1 Contract inventory
 
@@ -1099,22 +1100,31 @@ vanish on restart, and an audit log that can be lost is not an audit log.
 durable `AuditLog` contract. Do not conflate the two — audit may not be sampled,
 observability may.
 
-**C5 — `ExecutionBudget` is defined but nothing enforces it.** §13.3 requires a
-typed failure on budget exhaustion, and §18 requires budget inheritance across
-delegation to actually constrain. Today the budget is carried and inherited but
-never checked, so a delegation chain has no real ceiling. Already recorded as a
-known risk in `ARCHITECTURE.md`; the specification promotes it to a defect.
+**C5 — `ExecutionBudget` is defined but nothing enforces it.** ✅ **FIXED.**
+A `BudgetGuard` (`runtime/budget.ts`) now enforces `maxToolCalls`, `maxModelCalls`
+and `timeoutMs`, returning a typed `BUDGET_EXCEEDED`. One guard per run tree,
+shared with every child context, so a delegation chain cannot escape its parent's
+ceiling (§18.2). The ToolBelt charges tool calls and a per-run
+`createBudgetedRouter` charges model calls — both **before** the work, so a
+refused call reaches no provider.
 
 ### 27.3 Defects found in the existing foundation
 
-**G1 — `Supervisor.delegate()` resets delegation depth.** In
-`runtime/supervisor.ts`, the public `delegate()` method passes a hardcoded depth
-of `1`, while the in-context `delegate` correctly passes `depth + 1`. The public
-method is currently unreachable — nothing calls it, verified by grep — so this is
-latent rather than live. But an Orchestrator built in Phase 4 would call exactly
-this method, and the cycle guard would never trigger.
-*Not fixed here* — this task is documentation-only. **Fix in Phase 4, with a
-regression test.**
+**G1 — `Supervisor.delegate()` resets delegation depth.** ✅ **FIXED.**
+The public `delegate()` passed a hardcoded depth of `1`, so an Orchestrator
+looping through it would never trip the cycle guard. Depth is now derived from
+the run tree — the Supervisor records the depth and budget guard of every run in
+flight and looks the parent up — rather than trusted from the caller. Entries are
+removed when a run finishes, and a parent always outlives its children, so the
+map cannot grow without bound.
+
+Verified by regression test: reinstating the hardcoded depth makes the test
+recurse until killed; with the fix it fails cleanly with `delegation depth
+exceeded` in milliseconds.
+
+*Related finding:* `delegate()` acts as the `supervisor` subject, so a deployment
+using that entry point must grant `agent:dispatch` to `kind: 'supervisor'`
+explicitly. Deny-by-default still holds — omitting the grant blocks the path.
 
 ### 27.4 Additive gaps — no contradiction, contract simply absent
 
@@ -1123,10 +1133,10 @@ regression test.**
 | A1 | `Claim` with epistemic status (§6.1) | Research | 5 |
 | A2 | `Division` contract: roster, KPIs, escalation, collaboration interface | All divisions | 5 |
 | A3 | Memory versioning and supersession with validity intervals | User model, forecast vintages | 10 |
-| A4 | `project` memory scope | Project memory | 10 |
+| A4 | ~~`project` memory scope~~ ✅ done | Project memory | — |
 | A5 | Semantic retrieval (today: substring) | Memory quality | 10 |
 | A6 | User Intelligence contract with confidence decay and scoped projection | Learning, all personalisation | 11 |
-| A7 | Cost in `UsageMetrics`; cost aggregation | Observability, budgets | 4 |
+| A7 | Cost field in `UsageMetrics` ✅ done (aggregation still open) | Observability, budgets | 4 |
 | A8 | Router inputs: quota, rate limit, latency, reliability, free tier, task class | Model layer | 4 |
 | A9 | `Orchestrator` contract | Multi-step work | 4 |
 | A10 | `BackgroundJob` + `Scheduler` contracts | Background intelligence | 12 |
@@ -1194,8 +1204,8 @@ Note that [ADR 0012](adr/0012-command-center-design-direction.md) now fixes the
 | Phase | 2 — Master Specification |
 | Foundation reviewed | `eb33906` |
 | Core files modified | **none** (as of Phase 2; Step 2 of the Phase 3–4 plan changes this) |
-| Contradictions found | 5 (C1–C5) — **C1, C2, C3 resolved** by ADRs 0008–0010 |
-| Defects found | 1 (G1) |
+| Contradictions found | 5 (C1–C5) — **C1–C3 resolved** by ADRs 0008–0010; **C5 fixed** in code |
+| Defects found | 1 (G1) — **fixed**, with a regression test |
 | Additive gaps | 14 (A1–A14) |
 | Decisions pending | 9 (D1–D9) — **D1–D4 decided**; D5–D9 open |
 

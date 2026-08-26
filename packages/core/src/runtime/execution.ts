@@ -3,7 +3,8 @@ import { type Clock, systemClock } from '../clock.ts';
 import { type Logger, nullLogger } from '../logger.ts';
 import type { EventBus, NexusEvent } from '../contracts/events.ts';
 import type { PermissionEngine, Subject } from '../contracts/permissions.ts';
-import type { ExecutionBudget, ExecutionContext } from '../contracts/execution.ts';
+import type { BudgetGuard, ExecutionBudget, ExecutionContext } from '../contracts/execution.ts';
+import { createBudgetGuard } from './budget.ts';
 
 export interface CreateExecutionContextParams {
   readonly actor: Subject;
@@ -16,6 +17,11 @@ export interface CreateExecutionContextParams {
   readonly logger?: Logger;
   readonly ids?: IdGenerator;
   readonly metadata?: Record<string, unknown>;
+  /**
+   * Pass an existing guard to keep a delegated run under its parent's ceiling.
+   * Omitted only at the top of a run tree, where a fresh guard is created.
+   */
+  readonly budgetGuard?: BudgetGuard;
 }
 
 export function createExecutionContext(params: CreateExecutionContextParams): ExecutionContext {
@@ -23,6 +29,9 @@ export function createExecutionContext(params: CreateExecutionContextParams): Ex
   const ids = params.ids ?? cryptoIdGenerator;
   const logger = params.logger ?? nullLogger;
   const budget = params.budget ?? {};
+  // One guard per run tree. A child context reuses it, so nested runs cannot
+  // reset the ceiling they were given.
+  const budgetGuard = params.budgetGuard ?? createBudgetGuard(budget, clock);
   const id = toRunId(ids.next('run'));
 
   const build = (
@@ -36,6 +45,7 @@ export function createExecutionContext(params: CreateExecutionContextParams): Ex
     actor,
     startedAt: clock.now().toISOString(),
     budget,
+    budgetGuard,
     ...(params.signal !== undefined ? { signal: params.signal } : {}),
     clock,
     logger: logger.child({ runId: currentId, actor: `${actor.kind}:${actor.id}` }),

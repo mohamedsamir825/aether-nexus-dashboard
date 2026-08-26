@@ -58,6 +58,19 @@ describe('in-memory memory store', () => {
     expect((await store.delete(memoryId('missing'))).ok).toBe(false);
   });
 
+  test('supports the project scope (A4)', async () => {
+    const store = newStore();
+    const projectScope: MemoryScope = { kind: 'project', id: 'nexus-core' };
+    await store.put({ scope: projectScope, kind: 'fact', content: 'phase 3 in progress' });
+
+    const found = await store.query({ scope: projectScope });
+    expect(found.ok && found.value).toHaveLength(1);
+
+    // Project scope is isolated from every other scope kind sharing an id.
+    const collide = await store.query({ scope: { kind: 'division', id: 'nexus-core' } });
+    expect(collide.ok && collide.value).toHaveLength(0);
+  });
+
   test('reports itself as degraded so it is never mistaken for durable storage', async () => {
     const health = await newStore().health();
     expect(health.status).toBe('degraded');

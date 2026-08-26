@@ -19,6 +19,10 @@ const clock = fixedClock(new Date('2026-01-01T00:00:00Z'));
 const dispatchGrant = allowListPolicy('dispatch', [
   { subject: { kind: 'system' }, capabilities: [DISPATCH_CAPABILITY] },
   { subject: { kind: 'agent' }, capabilities: [DISPATCH_CAPABILITY, 'tool:execute'] },
+  // Supervisor.delegate() acts as the supervisor itself, so a deployment that
+  // uses the public delegation entry point must grant it explicitly. Deny-by-
+  // default still applies: omitting this row blocks that path entirely.
+  { subject: { kind: 'supervisor' }, capabilities: [DISPATCH_CAPABILITY] },
 ]);
 
 function harness(policies: readonly PermissionPolicy[] = [dispatchGrant]) {
@@ -183,6 +187,126 @@ describe('supervisor', () => {
     const result = await supervisor.dispatch({ target: { agentId: agentId('loop') }, task: task('x') });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.message).toContain('delegation depth exceeded');
+  });
+
+  test('derives delegation depth from the run tree, not from the caller (G1)', async () => {
+    // An Orchestrator (Phase 4) will call the PUBLIC Supervisor.delegate(), not
+    // context.delegate(). That path used to pass a hardcoded depth of 1, so the
+    // cycle guard never fired and a loop recursed until the stack died.
+    const { agents, supervisor } = harness();
+    let hops = 0;
+
+    agents.register(
+      stubAgent({
+        id: 'loop',
+        handler: async (_task, context) => {
+          hops += 1;
+          const nested = await supervisor.delegate(
+            { target: { agentId: agentId('loop') }, task: task('again') },
+            { runId: context.runId, budget: context.budget },
+          );
+          if (!nested.ok) return nested;
+          return ok({ output: {}, summary: 'never', evidence: [], usage: emptyUsage });
+        },
+      }),
+    );
+
+    const result = await supervisor.dispatch({ target: { agentId: agentId('loop') }, task: task('x') });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('delegation depth exceeded');
+    // Bounded, not merely "eventually stopped".
+    expect(hops).toBeLessThanOrEqual(10);
+  });
+
+  test('a delegation chain shares one budget and cannot reset it', async () => {
+    // Spec §18.2: budget is inherited, never reset. The parent is allowed one
+    // tool call and spends it, so the child must be refused.
+    const { agents, tools, supervisor } = harness();
+    tools.register(stubTool({ id: 'echo', requiredCapabilities: ['tool:execute'] }));
+
+    let childToolOutcome: string | undefined;
+
+    agents.register(
+      stubAgent({
+        id: 'child',
+        division: 'research',
+        role: 'analyst',
+        tools: ['echo'],
+        handler: async (_task, context) => {
+          const outcome = await context.tools.invoke(
+            { toolId: toolId('echo'), input: { value: 'child' } },
+            context,
+          );
+          childToolOutcome = outcome.ok ? 'allowed' : outcome.error.code;
+          return ok({ output: {}, summary: 'child done', evidence: [], usage: emptyUsage });
+        },
+      }),
+    );
+
+    agents.register(
+      stubAgent({
+        id: 'parent',
+        tools: ['echo'],
+        handler: async (_task, context) => {
+          // Parent spends the single allowed tool call.
+          const own = await context.tools.invoke(
+            { toolId: toolId('echo'), input: { value: 'parent' } },
+            context,
+          );
+          expect(own.ok).toBe(true);
+
+          const delegated = await context.delegate({
+            target: { division: divisionId('research'), role: 'analyst' },
+            task: task('sub'),
+          });
+          return delegated.ok
+            ? ok({ output: {}, summary: 'ok', evidence: [], usage: emptyUsage })
+            : delegated;
+        },
+      }),
+    );
+
+    await supervisor.dispatch({
+      target: { agentId: agentId('parent') },
+      task: task('x'),
+      budget: { maxToolCalls: 1 },
+    });
+
+    expect(childToolOutcome).toBe('BUDGET_EXCEEDED');
+  });
+
+  test('the agent-facing model router is charged against the run budget', async () => {
+    const { agents, supervisor } = harness();
+    let secondCall: string | undefined;
+
+    agents.register(
+      stubAgent({
+        id: 'a1',
+        handler: async (_task, context) => {
+          // No providers are registered in the harness, so both calls fail --
+          // but the SECOND must fail on budget, before routing is attempted.
+          await context.models.generate(
+            { requiredCapabilities: ['text'] },
+            { messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] },
+          );
+          const second = await context.models.generate(
+            { requiredCapabilities: ['text'] },
+            { messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] },
+          );
+          secondCall = second.ok ? 'ok' : second.error.code;
+          return ok({ output: {}, summary: 'done', evidence: [], usage: emptyUsage });
+        },
+      }),
+    );
+
+    await supervisor.dispatch({
+      target: { agentId: agentId('a1') },
+      task: task('x'),
+      budget: { maxModelCalls: 1 },
+    });
+
+    expect(secondCall).toBe('BUDGET_EXCEEDED');
   });
 
   test('aggregates health from its registry', async () => {

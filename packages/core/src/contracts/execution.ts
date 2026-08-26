@@ -3,6 +3,7 @@
  * reaching for globals or importing singletons. It carries identity, budget,
  * cancellation, and the permission-checked capabilities of the current run.
  */
+import type { Result } from '../result.ts';
 import type { RunId } from '../ids.ts';
 import type { Clock } from '../clock.ts';
 import type { Logger } from '../logger.ts';
@@ -16,6 +17,33 @@ export interface ExecutionBudget {
   readonly maxToolCalls?: number;
 }
 
+export interface BudgetUsage {
+  readonly modelCalls: number;
+  readonly toolCalls: number;
+  readonly elapsedMs: number;
+}
+
+/**
+ * Enforces an ExecutionBudget across a whole run tree.
+ *
+ * One guard is created per top-level dispatch and SHARED with every child
+ * context, so a delegation chain cannot escape the ceiling its parent was given
+ * by spawning children (spec §18.2). Charging happens before the work, so a
+ * refused call costs nothing.
+ *
+ * An unset field in the budget means "no limit for this dimension" -- not zero.
+ */
+export interface BudgetGuard {
+  readonly budget: ExecutionBudget;
+  /** Charge one model call, or fail with BUDGET_EXCEEDED. */
+  chargeModelCall(): Result<void>;
+  /** Charge one tool call, or fail with BUDGET_EXCEEDED. */
+  chargeToolCall(): Result<void>;
+  /** Wall-clock check; fails with BUDGET_EXCEEDED once timeoutMs has passed. */
+  checkDeadline(): Result<void>;
+  readonly usage: BudgetUsage;
+}
+
 export interface ExecutionContext {
   readonly runId: RunId;
   readonly parentRunId?: RunId;
@@ -23,6 +51,8 @@ export interface ExecutionContext {
   readonly actor: Subject;
   readonly startedAt: string;
   readonly budget: ExecutionBudget;
+  /** Shared with every child context; a nested run cannot reset it. */
+  readonly budgetGuard: BudgetGuard;
   readonly signal?: AbortSignal;
   readonly clock: Clock;
   readonly logger: Logger;
@@ -39,6 +69,12 @@ export interface UsageMetrics {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly durationMs: number;
+  /**
+   * Cost in minor currency units (e.g. cents), when the provider publishes
+   * pricing. Omitted -- never zero -- when cost is unknown, so "free" and
+   * "unmeasured" stay distinguishable (spec §21).
+   */
+  readonly costMinorUnits?: number;
 }
 
 export const emptyUsage: UsageMetrics = {

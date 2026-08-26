@@ -33,6 +33,8 @@ export * from './runtime/memory.ts';
 export * from './runtime/model-router.ts';
 export * from './runtime/health.ts';
 export * from './runtime/execution.ts';
+export * from './runtime/budget.ts';
+export * from './runtime/budgeted-router.ts';
 export * from './runtime/tool-belt.ts';
 export * from './runtime/supervisor.ts';
 

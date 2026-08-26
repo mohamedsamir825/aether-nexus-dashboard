@@ -10,7 +10,7 @@ import type { Result } from '../result.ts';
 import type { MemoryId } from '../ids.ts';
 import type { HealthReporter } from './health.ts';
 
-export type MemoryScopeKind = 'user' | 'division' | 'agent' | 'run';
+export type MemoryScopeKind = 'user' | 'division' | 'agent' | 'project' | 'run';
 
 export interface MemoryScope {
   readonly kind: MemoryScopeKind;

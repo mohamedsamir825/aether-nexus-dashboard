@@ -17,13 +17,17 @@ import type { Result } from '../result.ts';
 import type { ModelId, ProviderId } from '../ids.ts';
 import type { HealthReporter } from './health.ts';
 
+/**
+ * Text-model capabilities only. Speech (STT/TTS) is NOT here -- it lives on the
+ * sibling `SpeechProvider` contract (ADR 0009), because it differs in request
+ * shape, streaming semantics, failure modes and latency class.
+ */
 export type ModelCapability =
   | 'text'
   | 'streaming'
   | 'tool_use'
   | 'json_output'
   | 'vision'
-  | 'audio_input'
   | 'embeddings'
   | 'reasoning';
 

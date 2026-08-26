@@ -57,6 +57,10 @@ export function createToolBelt(params: {
         if (!permitted.ok) return permitted;
       }
 
+      // Charged before execution, so a refused call has no side effect.
+      const charged = context.budgetGuard.chargeToolCall();
+      if (!charged.ok) return charged;
+
       const validated = tool.validate(invocation.input);
       if (!validated.ok) return validated;
 

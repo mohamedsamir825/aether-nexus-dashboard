@@ -16,13 +16,15 @@ import { type IdGenerator, cryptoIdGenerator, type RunId } from '../ids.ts';
 import type { AgentRegistry, ToolRegistry } from '../registry/registries.ts';
 import type { AnyAgent, AgentContext, AgentResult, DelegationRequest } from '../contracts/agent.ts';
 import type { DispatchRequest, DispatchTarget, Supervisor } from '../contracts/supervisor.ts';
-import type { ExecutionBudget } from '../contracts/execution.ts';
+import type { BudgetGuard, ExecutionBudget } from '../contracts/execution.ts';
 import type { EventBus } from '../contracts/events.ts';
 import type { PermissionEngine, Subject } from '../contracts/permissions.ts';
 import type { MemoryStore } from '../contracts/memory.ts';
 import type { ModelRouter } from '../contracts/model-router.ts';
 import type { SystemHealth } from '../contracts/health.ts';
 import { createExecutionContext, createEvent } from './execution.ts';
+import { createBudgetGuard } from './budget.ts';
+import { createBudgetedRouter } from './budgeted-router.ts';
 import { createToolBelt } from './tool-belt.ts';
 import { createScopedMemory } from './memory.ts';
 import { type HealthRegistry, createHealthRegistry } from './health.ts';
@@ -54,6 +56,19 @@ export function createSupervisor(params: CreateSupervisorParams): Supervisor {
 
   const supervisorSubject: Subject = { kind: 'supervisor', id: 'core' };
 
+  /**
+   * Depth and budget guard of every run currently in flight.
+   *
+   * The public `delegate()` used to take depth from its caller, which meant an
+   * Orchestrator could restart the count on every hop and walk straight past
+   * MAX_DELEGATION_DEPTH. Depth is a property of the run tree, not something a
+   * caller should be trusted to report, so it is derived here instead.
+   *
+   * Entries are removed when a run finishes. A parent always outlives its
+   * children, so the map cannot grow without bound.
+   */
+  const inFlight = new Map<RunId, { depth: number; guard: BudgetGuard }>();
+
   function resolve(target: DispatchTarget): Result<AnyAgent> {
     if ('agentId' in target) {
       return params.agents.get(target.agentId);
@@ -76,6 +91,7 @@ export function createSupervisor(params: CreateSupervisorParams): Supervisor {
     budget: ExecutionBudget,
     parentRunId: RunId | undefined,
     depth: number,
+    inheritedGuard: BudgetGuard | undefined,
   ): Promise<Result<AgentResult<O>>> {
     if (depth > MAX_DELEGATION_DEPTH) {
       return err(
@@ -114,17 +130,24 @@ export function createSupervisor(params: CreateSupervisorParams): Supervisor {
       division: descriptor.division,
     };
 
+    // A delegated run inherits its parent's guard, so the whole chain shares one
+    // ceiling (spec §18.2). Only the top of a tree creates a new one.
+    const guard = inheritedGuard ?? createBudgetGuard(budget, clock);
+
     const base = createExecutionContext({
       actor: agentSubject,
       events: params.events,
       permissions: params.permissions,
       budget,
+      budgetGuard: guard,
       ...(parentRunId !== undefined ? { parentRunId } : {}),
       clock,
       logger,
       ids,
       metadata: { ...(request.metadata ?? {}), taskId: request.task.id, depth },
     });
+
+    inFlight.set(base.runId, { depth, guard });
 
     const context: AgentContext = {
       ...base,
@@ -133,7 +156,7 @@ export function createSupervisor(params: CreateSupervisorParams): Supervisor {
         subject: agentSubject,
         allowed: descriptor.tools,
       }),
-      models: params.models,
+      models: createBudgetedRouter(params.models, guard),
       memory: createScopedMemory({
         store: params.memory,
         subject: agentSubject,
@@ -148,6 +171,7 @@ export function createSupervisor(params: CreateSupervisorParams): Supervisor {
           budget,
           base.runId,
           depth + 1,
+          guard,
         ),
     };
 
@@ -169,6 +193,8 @@ export function createSupervisor(params: CreateSupervisorParams): Supervisor {
     } catch (cause) {
       // An agent that throws must not take the Supervisor down with it.
       outcome = err(fromUnknown(cause, 'INTERNAL'));
+    } finally {
+      inFlight.delete(base.runId);
     }
 
     await params.events.publish(
@@ -200,17 +226,23 @@ export function createSupervisor(params: CreateSupervisorParams): Supervisor {
         request.budget ?? {},
         undefined,
         0,
+        undefined,
       );
     },
 
     delegate<O = unknown>(request: DelegationRequest, parent: { runId: string; budget: ExecutionBudget }) {
+      // Depth and guard come from the parent run's own record, not from the
+      // caller. An unknown parent means no chain is in flight, so this is the
+      // top of a new tree (depth 0) -- see the `inFlight` note above.
+      const lineage = inFlight.get(parent.runId as RunId);
       return run<O>(
         request.target,
         { target: request.target, task: request.task },
         supervisorSubject,
         parent.budget,
         parent.runId as RunId,
-        1,
+        lineage ? lineage.depth + 1 : 0,
+        lineage?.guard,
       );
     },
 
