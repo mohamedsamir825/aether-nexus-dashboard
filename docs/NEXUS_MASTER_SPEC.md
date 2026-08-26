@@ -635,6 +635,13 @@ progress · financial dashboards · KPI visualisation · real-time execution ·
 voice visualisation · alerts · notifications · command interface · responsive
 layouts.
 
+> **Design direction is fixed by [ADR 0012](adr/0012-command-center-design-direction.md).**
+> A strict reference hierarchy governs: the NEXUS Command Center mock-up is
+> authoritative; Z.E.R.O. contributes voice, module status, transcript line and
+> typographic detail; Maxton contributes information density only. The agent
+> visualisation gets its own view, and each of its regions is a real division lit
+> by real activity. See [`design/`](design/).
+
 ### 17.2 The governing constraint
 
 **Function first.** The Command Center's job is to make system state legible at a
@@ -788,7 +795,8 @@ notification hierarchy · command interface · responsive behaviour to mobile.
 
 **Constraints:** dark-first but theme-aware; accessible contrast is a hard floor;
 motion respects reduced-motion preferences; every visual state maps to a real
-system state.
+system state. The reference hierarchy in [ADR 0012](adr/0012-command-center-design-direction.md)
+governs; references live in [`design/references/`](design/references/).
 
 ---
 
@@ -897,8 +905,12 @@ carry explicit trade-offs.
 inputs and priced consequences.
 
 ### Phase 8 — Learning & Development
+> ⚠️ **Reordered by [ADR 0010](adr/0010-user-intelligence-before-learning.md).**
+> Learning now runs at **Phase 12**, after Memory (10) and User Intelligence (11).
+> Phase 8 is vacated; Cross-Agent Intelligence keeps Phase 9.
+
 **Objective:** personalisation; the anti-blindness rule proven.
-**Dependencies:** Phase 11 (User Intelligence) — hard dependency.
+**Dependencies:** Memory (Phase 10) and User Intelligence (Phase 11) — hard.
 **Deliverables:** Learning roster; level assessment; gap analysis; progress
 tracking; cross-domain explanation with attributed delegation.
 **Tests:** **the §7.1 rule** — a cross-domain question is answered and delegated,
@@ -925,6 +937,9 @@ isolation under adversarial ids; retrieval quality fixtures.
 believes something.
 
 ### Phase 11 — User Intelligence
+> Position confirmed by [ADR 0010](adr/0010-user-intelligence-before-learning.md):
+> immediately after Memory, and **before** Learning.
+
 **Objective:** the evolving user model.
 **Dependencies:** Phase 10.
 **Deliverables:** user-model contract; versioned attributes with validity
@@ -1049,10 +1064,11 @@ modified to produce this specification.
 `PermissionEngine.check()` returns a `PermissionDecision` synchronously. §20.2
 requires waiting for a human who may be asleep. A synchronous interface cannot
 await a person. This is a genuine contradiction, not a missing feature.
-*Recommended resolution:* keep the engine synchronous — it is on the hot path and
-must stay fast — and add a separate `AuthorizationBroker` that issues, persists,
-expires and resolves authorisation requests. The permission engine then checks
-for a *held* authorisation token rather than waiting for one. **Needs an ADR.**
+**RESOLVED by [ADR 0008](adr/0008-async-authorization-broker.md):** the engine
+stays synchronous — it is on the hot path — and a separate `AuthorisationBroker`
+issues, persists, expires and resolves authorisation requests. The engine checks
+for a *held* token rather than waiting for one; expiry defaults to deny. Callers
+gain a third outcome, `AUTHORISATION_REQUIRED`. Contract not yet written.
 
 **C2 — Voice providers do not fit `ModelProvider`.** `ModelCapability` includes
 `audio_input` but has no audio output, and STT/TTS are not text generation:
@@ -1060,18 +1076,20 @@ different request shapes, different streaming semantics, different latency
 profile. Widening `ModelProvider` to cover them would violate ADR 0004's rule
 that adding a provider requires no contract edit — the rule would be broken by
 the first voice provider.
-*Recommended resolution:* a sibling `SpeechProvider` contract with its own
-registry and router, parallel to `ModelProvider`, not inside it. Remove or
-repurpose the unused `audio_input` capability. **Needs an ADR.**
+**RESOLVED by [ADR 0009](adr/0009-speech-provider-contract.md):** `SpeechProvider`
+is a sibling contract with its own registry and router, not part of
+`ModelProvider`. The unused `audio_input` capability is removed. Wake-word
+detection stays local and is not a provider concern.
 
 **C3 — Roadmap ordering inverts a dependency.** Phase 8 (Learning) has a hard
 dependency on Phase 11 (User Intelligence), which comes later. Learning without a
 user model degrades to generic tutoring, which is precisely the failure §7
 targets. Note also that this roadmap has **16 phases against the 15 requested**,
 because User Intelligence was separated from Memory rather than folded into it.
-*Options:* (a) move Learning after User Intelligence; (b) split Learning into a
-generic tutor early and personalisation later; (c) pull User Intelligence forward
-next to Memory. **This is a sequencing decision for the user — see §28.**
+**RESOLVED by [ADR 0010](adr/0010-user-intelligence-before-learning.md):** User
+Intelligence moves to Phase 11, immediately after Memory, and Learning follows at
+Phase 12. No phase now depends on a later one. The 16-phase count is deliberate
+and explained there.
 
 **C4 — Events are ephemeral; audit and background work need durability.**
 `createInMemoryEventBus` is correct for one process, but §15 requires jobs
@@ -1134,21 +1152,19 @@ abstraction** satisfies §13.1 for text models, with C2 confined to speech; and
 
 Engineering cannot settle these.
 
-**D1 — Roadmap sequencing (C3).** Learning depends on User Intelligence, which is
-scheduled later. Move Learning back, split it, or pull User Intelligence forward?
-*Recommendation:* pull User Intelligence adjacent to Memory (Phases 10–11) and
-move Learning after it. Personalisation is the whole value of that division.
+**D1 — Roadmap sequencing (C3).** ✅ **DECIDED** — [ADR 0010](adr/0010-user-intelligence-before-learning.md).
+User Intelligence to Phase 11, Learning to Phase 12.
 
-**D2 — Async authorisation model (C1).** Approve the `AuthorizationBroker`
-direction, or prefer an async permission engine throughout? *Recommendation:*
-separate broker; keep the hot path synchronous.
+**D2 — Async authorisation model (C1).** ✅ **DECIDED** — [ADR 0008](adr/0008-async-authorization-broker.md).
+Separate broker; hot path stays synchronous.
 
-**D3 — Speech provider separation (C2).** Sibling `SpeechProvider` contract, or
-widen `ModelProvider`? *Recommendation:* sibling contract, to preserve ADR 0004.
+**D3 — Speech provider separation (C2).** ✅ **DECIDED** — [ADR 0009](adr/0009-speech-provider-contract.md).
+Sibling contract, preserving ADR 0004.
 
-**D4 — First provider adapter.** Which vendor is implemented first in Phase 4?
-This depends on which credential you actually hold and is the gate on all
-downstream phases.
+**D4 — First provider adapter.** ✅ **DECIDED** — [ADR 0011](adr/0011-free-tier-provider-strategy.md).
+Free tiers only. Two adapters: `openai-compatible` (covering Groq, Cerebras,
+OpenRouter, Mistral, SambaNova) and `google` (Gemini's native protocol). Together
+they are the real test of ADR 0004.
 
 **D5 — Memory persistence backend.** Constrains retrieval quality and operational
 burden for the life of the system. Needed by Phase 10.
@@ -1161,9 +1177,10 @@ division initially; expand on demand.
 15. If multi-user is wanted earlier, `Subject` and memory scoping need revisiting
 now rather than later.
 
-**D8 — Dashboard template disposition.** Adopt `apps/dashboard` as the Command
-Center starting point, or delete it at Phase 14? Deferred by ADR 0003; the
-decision lands in Phase 14.
+**D8 — Dashboard template disposition.** Still open — adopt `apps/dashboard` as
+the Command Center starting point, or delete it at Phase 14? Deferred by ADR 0003.
+Note that [ADR 0012](adr/0012-command-center-design-direction.md) now fixes the
+*design direction* independently, and it is not the template's direction.
 
 **D9 — Repository name.** Still `aether-nexus-dashboard`; the root package is
 `nexus`.
@@ -1176,11 +1193,11 @@ decision lands in Phase 14.
 | --- | --- |
 | Phase | 2 — Master Specification |
 | Foundation reviewed | `eb33906` |
-| Core files modified | **none** |
-| Contradictions found | 5 (C1–C5) |
+| Core files modified | **none** (as of Phase 2; Step 2 of the Phase 3–4 plan changes this) |
+| Contradictions found | 5 (C1–C5) — **C1, C2, C3 resolved** by ADRs 0008–0010 |
 | Defects found | 1 (G1) |
 | Additive gaps | 14 (A1–A14) |
-| Decisions pending | 9 (D1–D9) |
+| Decisions pending | 9 (D1–D9) — **D1–D4 decided**; D5–D9 open |
 
 **Related:** [`ARCHITECTURE.md`](ARCHITECTURE.md) — what the Core does today ·
 [`ROADMAP.md`](ROADMAP.md) — near-term sequencing · [`adr/`](adr/) — accepted

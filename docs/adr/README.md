@@ -15,3 +15,8 @@ silent edit.
 | [0005](0005-deny-by-default-permissions.md) | Deny-by-default permissions | Accepted |
 | [0006](0006-result-over-exceptions.md) | Result values over exceptions | Accepted |
 | [0007](0007-supervisor-is-not-a-planner.md) | The Supervisor is not a planner | Accepted |
+| [0008](0008-async-authorization-broker.md) | Asynchronous authorization broker (resolves C1) | Accepted |
+| [0009](0009-speech-provider-contract.md) | SpeechProvider is a sibling contract (resolves C2) | Accepted |
+| [0010](0010-user-intelligence-before-learning.md) | User Intelligence precedes Learning (resolves C3) | Accepted |
+| [0011](0011-free-tier-provider-strategy.md) | Free-tier-only providers, two-adapter pattern | Accepted |
+| [0012](0012-command-center-design-direction.md) | Command Center design direction | Accepted |

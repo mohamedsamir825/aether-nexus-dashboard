@@ -19,6 +19,15 @@ analysis) and §28 (decisions pending).
 - 78 tests, zero dependencies, no network, no credentials.
 - `bun run health`.
 
+## Decided since this file was written
+
+Five ADRs (0008–0012) resolved the blocking contradictions and fixed the provider
+and design direction. In short: a separate asynchronous authorisation broker;
+`SpeechProvider` as a sibling contract; User Intelligence before Learning; **free
+API tiers only**, served by two adapters (`openai-compatible` covering five
+providers, plus Gemini's native protocol); and a fixed Command Center reference
+hierarchy. See [`adr/`](adr/) and [`design/`](design/).
+
 ## Next — one vertical slice, in this order
 
 The rule: **prove the Core with one slice before adding breadth.** Building three
@@ -26,9 +35,12 @@ divisions on an unproven Core means fixing the same mistake three times.
 
 1. **A `SchemaValidator` implementation.** Every tool needs input validation and
    hand-rolled `validate()` will drift. Pick the library here, once.
-2. **One provider adapter** — whichever key you actually hold. Watch whether it
-   forces a change to `contracts/model-provider.ts`; if it does, ADR 0004 is
-   wrong and needs revisiting before a second adapter exists.
+2. **Two provider adapters, both free** ([ADR 0011](adr/0011-free-tier-provider-strategy.md)) —
+   `openai-compatible` (Groq · Cerebras · OpenRouter · Mistral · SambaNova) and
+   `google` (Gemini). Two genuinely different wire protocols, which is the
+   condition ADR 0004 named for judging its own abstraction. If either forces a
+   change to `contracts/model-provider.ts`, ADR 0004 was wrong and needs a
+   superseding ADR.
 3. **One real tool**, end to end, including evidence.
 4. **One real agent**, in one division, using that tool through the Supervisor.
 5. **A durable `MemoryStore`.** Needed before any agent must remember across
