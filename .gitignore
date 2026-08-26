@@ -1,9 +1,45 @@
+# Dependencies
 node_modules/
+.bun-tmp/
+
+# Build output
 build/
 dist/
+*.tsbuildinfo
+
+# Test and coverage output
 coverage/
-.bun-tmp/
+
+# Secrets and local environment.
+# Every .env variant is ignored; .env.example is force-included below because it
+# is a committed template that must never contain real values.
+.env
+.env.*
+!.env.example
+
+# Credentials that must never be committed
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+.secrets/
+service-account*.json
+
+# Deployment/tooling caches
 .wrangler/
+.vercel/
+.turbo/
+.cache/
+
+# Editor and OS
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
 *.log
-.env*
+npm-debug.log*
+bun-debug.log*

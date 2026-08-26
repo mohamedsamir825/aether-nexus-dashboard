@@ -1,92 +1,60 @@
-# Aether Nexus Dashboard
+# NEXUS
 
-A dense React dashboard template for AI-assisted operations, telemetry, and review workflows.
+A Personal Intelligence & Execution System, built to grow into a Business/Executive OS.
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-6-646cff.svg)](https://vite.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38bdf8.svg)](https://tailwindcss.com/)
+**Status: engineering foundation only.** The Core contracts, registries, permission
+model, provider-agnostic model layer, and test infrastructure exist. No divisions,
+no agents, no tools, no UI wiring, and no provider adapters exist yet — that is
+deliberate, not incomplete work. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what
+comes next and what is intentionally deferred.
 
-Aether Nexus Dashboard is a static, frontend-only command-center starter. It combines a responsive app shell, operational charts, task review queues, activity streams, and an AI companion panel into one compact interface that can be adapted for internal tools, analytics products, and AI workflow prototypes.
+## What is here
 
-## Features
-
-- Responsive three-pane dashboard shell with mobile drawers.
-- KPI cards, sparklines, area charts, task queues, and activity feeds.
-- AURA side panel for AI-assisted diagnostic and review workflows.
-- Tailwind CSS 4 theme tokens for a dark operational interface.
-- Recharts visualizations and Lucide React icons.
-- No backend, API keys, or runtime environment variables required.
-
-## Stack
-
-- React 19
-- TypeScript
-- Vite 6
-- Tailwind CSS 4
-- Recharts
-- Lucide React
-- Bun
-
-## Quick Start
-
-```bash
-git clone git@github.com:bymilon/aether-nexus-dashboard.git
-cd aether-nexus-dashboard
-bun install
-bun run dev
+```txt
+packages/core/     The Core: contracts, registries, runtime primitives. Zero runtime dependencies.
+apps/dashboard/    A vendored third-party dashboard template. NOT wired to Core. See its README.
+docs/              Architecture, decision records, and roadmap.
 ```
 
-The dev server runs at `http://localhost:3000`.
+## Quick start
+
+```bash
+bun install
+bun test          # 78 tests, no network, no credentials
+bun run health    # honest system status; exits non-zero while unavailable
+```
+
+`bun run health` currently reports `unavailable`. That is the correct answer: no
+model provider adapters are registered, so the system says it cannot serve model
+calls rather than discovering that at the first request.
 
 ## Scripts
 
 ```bash
-bun run dev      # Start Vite on port 3000
-bun run build    # Create a production build in dist/
-bun run preview  # Preview the production build
-bun run lint     # Type-check with TypeScript
+bun test               # Core test suite
+bun run typecheck      # Type-check every package
+bun run health         # Print a JSON health report
+bun run dashboard:dev  # Run the vendored template (unrelated to Core)
 ```
 
-## Project Structure
+## Configuration
 
-```txt
-src/
-  components/       Sidebar, main dashboard content, and AURA panel
-  App.tsx           Layout state and responsive panel composition
-  index.css         Tailwind theme tokens and global styles
-  main.tsx          React entry point
-DESIGN.md          Visual design notes and customization guidance
-TODO.md            Linear-style OSS release backlog
-```
+Copy `.env.example` to `.env` and fill in only what you use. Nothing is required
+to run the foundation. Secrets live in `.env` (git-ignored) and are never logged:
+the only supported way to render configuration is `describeConfig`, which reports
+credential *presence*, never values. This is enforced by tests, not by convention.
 
-## Customization
+## Architecture
 
-- Edit navigation and workspace copy in `src/components/Sidebar.tsx`.
-- Adjust KPI cards, chart data, task queues, and activity feeds in `src/components/MainContent.tsx`.
-- Update AURA panel prompts, generated diagnostic content, and composer actions in `src/components/AIPanel.tsx`.
-- Tune colors, typography, and scrollbar styling in `src/index.css`.
-- Use `DESIGN.md` for layout, palette, and interaction guidance.
+Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first. Decisions and their
+trade-offs are recorded in [`docs/adr/`](docs/adr/).
 
-## Roadmap
-
-See [TODO.md](TODO.md) for the release backlog. Tasks are written in a Linear-style format so they can be moved into GitHub issues later.
-
-## Contributing
-
-Issues and pull requests are welcome. Keep changes focused, include screenshots for visual changes, and run:
-
-```bash
-bun run lint
-bun run build
-```
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
-
-## Security
-
-Do not open public issues for vulnerabilities. Follow [SECURITY.md](SECURITY.md).
+The short version: a Supervisor coordinates specialised agents grouped into
+divisions. Agents own skills, reach the world only through permission-checked
+tools, and talk to models only through a router that hides the vendor. Agents
+never import each other — collaboration goes through the Supervisor.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). `apps/dashboard/` is third-party work by
+[bymilon](https://github.com/bymilon), retained under the same license.

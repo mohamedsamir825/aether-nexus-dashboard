@@ -1,47 +1,25 @@
 {
-  "name": "aether-nexus-dashboard",
-  "version": "0.1.0",
-  "description": "A dense React dashboard template for AI-assisted operations and command-center interfaces.",
+  "name": "nexus",
+  "version": "0.0.1",
+  "private": true,
+  "description": "NEXUS — Personal Intelligence & Execution System. Monorepo root.",
   "license": "MIT",
-  "author": "bymilon <https://github.com/bymilon>",
   "type": "module",
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/bymilon/aether-nexus-dashboard.git"
-  },
-  "bugs": {
-    "url": "https://github.com/bymilon/aether-nexus-dashboard/issues"
-  },
-  "homepage": "https://github.com/bymilon/aether-nexus-dashboard#readme",
   "packageManager": "bun@1.3.14",
-  "keywords": [
-    "react",
-    "vite",
-    "tailwindcss",
-    "dashboard",
-    "analytics",
-    "ai-interface"
+  "workspaces": [
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "tsc --noEmit"
-  },
-  "dependencies": {
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.546.0",
-    "react": "^19.0.1",
-    "react-dom": "^19.0.1",
-    "recharts": "^3.8.1",
-    "tailwind-merge": "^3.6.0"
+    "test": "bun test packages",
+    "typecheck": "tsc --noEmit -p packages/core && tsc --noEmit -p apps/dashboard",
+    "health": "bun run packages/core/src/bin/health.ts",
+    "dashboard:dev": "bun run --filter '@nexus/dashboard' dev",
+    "dashboard:build": "bun run --filter '@nexus/dashboard' build"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.14",
+    "@types/bun": "^1.4.0",
     "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.4",
-    "tailwindcss": "^4.1.14",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "typescript": "~5.8.2"
   }
 }

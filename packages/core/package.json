@@ -1,0 +1,17 @@
+{
+  "name": "@nexus/core",
+  "version": "0.0.1",
+  "private": true,
+  "description": "NEXUS Core — contracts, registries, and runtime primitives. No product logic, no external dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "health": "bun run src/bin/health.ts"
+  }
+}

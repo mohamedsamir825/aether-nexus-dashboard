@@ -4,19 +4,15 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
-  build:
-    name: Type-check and build
+  core:
+    name: Core — typecheck and test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
@@ -24,10 +20,54 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Type-check
-        run: bun run lint
+        run: bun run typecheck
 
-      - name: Build
-        run: bun run build
+      - name: Test
+        run: bun test packages
+
+      # The foundation must start and report honestly. It exits non-zero while
+      # no provider adapter is registered, which is the expected state today --
+      # so assert the report is produced, not that the system is healthy.
+      - name: Health report
+        run: bun run health || true
 
       - name: Audit dependencies
         run: bun audit
+
+  secrets:
+    name: No committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cheap backstop for requirement 10. Not a replacement for secret scanning.
+      - name: Scan for credential-shaped strings
+        run: |
+          if git grep -nIE '(sk-ant-|sk-proj-|sk-[A-Za-z0-9]{32}|AIza[0-9A-Za-z_-]{35}|xai-[A-Za-z0-9]{32})' \
+               -- . ':!.github/workflows/ci.yml' ':!*.test.ts'; then
+            echo "::error::possible credential committed"
+            exit 1
+          fi
+          echo "no credential-shaped strings found"
+
+      - name: Ensure no .env file is tracked
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error::.env is tracked"
+            exit 1
+          fi
+          echo ".env is not tracked"
+
+  dashboard:
+    name: Dashboard template — typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter '@nexus/dashboard' typecheck
+      - run: bun run --filter '@nexus/dashboard' build

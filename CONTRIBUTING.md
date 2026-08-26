@@ -1,34 +1,50 @@
 # Contributing
 
-Thanks for helping improve Aether Nexus Dashboard.
-
 ## Setup
 
 ```bash
 bun install
-bun run dev
+bun test          # Core suite: no network, no credentials required
+bun run typecheck
+bun run health
 ```
 
-The dev server runs at `http://localhost:3000`.
-
-## Checks
-
-Run these before opening a pull request:
+## Checks before a pull request
 
 ```bash
-bun run lint
-bun run build
+bun run typecheck
+bun test packages
 ```
 
-## Pull Requests
+## Architectural changes
 
-- Keep changes focused and easy to review.
-- Include screenshots or short clips for visual changes.
-- Update `README.md`, `DESIGN.md`, or `TODO.md` when behavior, setup, or release scope changes.
-- Avoid adding runtime services, API keys, or environment variables unless the feature clearly needs them.
+Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first.
 
-## Style
+A change that contradicts an accepted ADR needs a **new ADR superseding it**,
+not a silent edit. Add it to [`docs/adr/`](docs/adr/) in the same pull request.
 
-- Prefer existing component patterns before adding abstractions.
-- Keep the interface dense, calm, and operational.
-- Use Bun commands in docs and automation.
+Two rules deserve calling out because they are easy to break by accident:
+
+- **Adding a model provider must not require editing the Core.** If a new
+  adapter forces a change to `contracts/model-provider.ts`, to any agent, or to
+  any skill, the abstraction is wrong — say so in the PR rather than widening
+  the contract. See ADR 0004.
+- **Agents must not import each other.** Collaboration goes through
+  `context.delegate(...)`. See ADR 0007.
+
+## Code
+
+- The Core has **zero runtime dependencies**. Adding one to `packages/core` needs
+  justification in the PR.
+- Expected failures return `Result`, not thrown exceptions. See ADR 0006.
+- Nothing is permitted by default. New capabilities are declared on descriptors
+  and granted by policy. See ADR 0005.
+- No fake implementations that pretend to be real. Test doubles live in
+  `packages/core/tests/support/` and are never exported from the package.
+- Never commit secrets. Configuration is rendered only through `describeConfig`,
+  which emits credential presence and never values.
+
+## `apps/dashboard`
+
+A vendored third-party template that is not wired to NEXUS Core (ADR 0003).
+Changes there are unrelated to Core work — keep them in separate pull requests.
