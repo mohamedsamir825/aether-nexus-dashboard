@@ -34,6 +34,13 @@
       "name": "@nexus/core",
       "version": "0.0.1",
     },
+    "packages/providers/google": {
+      "name": "@nexus/provider-google",
+      "version": "0.0.1",
+      "dependencies": {
+        "@nexus/core": "workspace:*",
+      },
+    },
     "packages/providers/openai-compatible": {
       "name": "@nexus/provider-openai-compatible",
       "version": "0.0.1",
@@ -146,6 +153,8 @@
     "@nexus/core": ["@nexus/core@workspace:packages/core"],
 
     "@nexus/dashboard": ["@nexus/dashboard@workspace:apps/dashboard"],
+
+    "@nexus/provider-google": ["@nexus/provider-google@workspace:packages/providers/google"],
 
     "@nexus/provider-openai-compatible": ["@nexus/provider-openai-compatible@workspace:packages/providers/openai-compatible"],
 

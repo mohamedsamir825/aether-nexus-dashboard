@@ -47,7 +47,44 @@ vendor feature. `providerOptions` is an untyped escape hatch that can be abused.
 A capability a vendor supports but the neutral type omits requires a Core change
 — exactly the case the "edit means ADR" rule is designed to catch.
 
+## Verdict (2026-08-26)
+
+The condition this ADR set for judging itself has now been met. Two adapters
+exist, on genuinely different wire protocols:
+
+- `@nexus/provider-openai-compatible` — OpenAI chat-completions, covering Groq,
+  Cerebras, OpenRouter, Mistral, SambaNova and local runtimes.
+- `@nexus/provider-google` — Gemini's native `generateContent`, which differs in
+  roles (`user`/`model`, no `system` role), message structure (typed parts, not
+  string plus side-channels), model addressing (URL path, not body), parameter
+  nesting, and finish-reason vocabulary.
+
+**Neither required editing `contracts/model-provider.ts`, any agent, or any
+skill.** Verified by the contract-stability tripwire
+(`tests/contract-stability.test.ts`), not asserted.
+
+Two Core files did change, neither a contract: `config/config.ts` gained entries
+for the new providers, and `errors.ts` gained `RATE_LIMITED`. The shared error
+vocabulary growing is not the provider contract leaking — a 429 has to be
+distinguishable from "the provider is down" or the router cannot tell backing
+off from failing over.
+
+**The one place the abstraction was genuinely stressed:** NEXUS keys a tool
+result to the `callId` of the call it answers; Google has no call ids at all and
+keys a `functionResponse` by function *name*. The Gemini adapter resolves the
+name by scanning the conversation for the matching call, and synthesises
+deterministic ids for inbound calls. That is real work inside the adapter, but
+it stayed inside the adapter — the neutral shape carries strictly more
+information than Google's, so the mapping is lossy only in the harmless
+direction. Had it been the other way round, this ADR would have needed
+superseding.
+
+The abstraction stands. This verdict does not close the question permanently:
+a provider whose capabilities the neutral type cannot express would reopen it.
+
 ## Revisit when
 
-The **second** adapter is written — not the first. One adapter always fits the
-abstraction it was designed against; two reveal whether it is real.
+A provider appears that the neutral type cannot express without a contract edit
+— streaming semantics, structured output, or a capability with no neutral
+equivalent are the likely candidates. Speech already proved to be one, and was
+resolved by a sibling contract rather than a widened one (ADR 0009).
