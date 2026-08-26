@@ -29,6 +29,10 @@ export const KNOWN_PROVIDERS = [
   'google',
   'openrouter',
   'xai',
+  'groq',
+  'cerebras',
+  'mistral',
+  'sambanova',
 ] as const;
 
 export type KnownProviderId = (typeof KNOWN_PROVIDERS)[number];
@@ -39,6 +43,10 @@ const API_KEY_VARS: Record<KnownProviderId, string> = {
   google: 'NEXUS_GOOGLE_API_KEY',
   openrouter: 'NEXUS_OPENROUTER_API_KEY',
   xai: 'NEXUS_XAI_API_KEY',
+  groq: 'NEXUS_GROQ_API_KEY',
+  cerebras: 'NEXUS_CEREBRAS_API_KEY',
+  mistral: 'NEXUS_MISTRAL_API_KEY',
+  sambanova: 'NEXUS_SAMBANOVA_API_KEY',
 };
 
 const BASE_URL_VARS: Record<KnownProviderId, string> = {
@@ -47,6 +55,10 @@ const BASE_URL_VARS: Record<KnownProviderId, string> = {
   google: 'NEXUS_GOOGLE_BASE_URL',
   openrouter: 'NEXUS_OPENROUTER_BASE_URL',
   xai: 'NEXUS_XAI_BASE_URL',
+  groq: 'NEXUS_GROQ_BASE_URL',
+  cerebras: 'NEXUS_CEREBRAS_BASE_URL',
+  mistral: 'NEXUS_MISTRAL_BASE_URL',
+  sambanova: 'NEXUS_SAMBANOVA_BASE_URL',
 };
 
 export interface ProviderConfig {

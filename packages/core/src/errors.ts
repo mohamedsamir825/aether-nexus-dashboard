@@ -9,6 +9,7 @@ export type NexusErrorCode =
   | 'PERMISSION_DENIED'
   | 'NOT_CONFIGURED'
   | 'PROVIDER_UNAVAILABLE'
+  | 'RATE_LIMITED'
   | 'UNSUPPORTED'
   | 'TIMEOUT'
   | 'BUDGET_EXCEEDED'
