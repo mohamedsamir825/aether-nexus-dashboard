@@ -77,6 +77,12 @@ export function stubProvider(options: StubProviderOptions): ModelProvider & { ca
       return ok(descriptors);
     },
     async generate(request: GenerationRequest): Promise<Result<GenerationResponse>> {
+      if (options.configured === false) {
+        return err(nexusError('NOT_CONFIGURED', `${options.id} has no credential`));
+      }
+      if (request.signal?.aborted) {
+        return err(nexusError('CANCELLED', 'request aborted before dispatch'));
+      }
       calls.push(request.model);
       if (options.throwWith) throw new Error(options.throwWith);
       if (options.failWith) {
@@ -93,8 +99,9 @@ export function stubProvider(options: StubProviderOptions): ModelProvider & { ca
     async health(): Promise<HealthReport> {
       return {
         component: `provider:${options.id}`,
-        status: 'healthy',
+        status: options.configured === false ? 'unavailable' : 'healthy',
         checkedAt: new Date(0).toISOString(),
+        ...(options.configured === false ? { detail: 'no credential configured' } : {}),
       };
     },
   };
