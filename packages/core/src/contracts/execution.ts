@@ -15,11 +15,28 @@ export interface ExecutionBudget {
   readonly timeoutMs?: number;
   readonly maxModelCalls?: number;
   readonly maxToolCalls?: number;
+  /**
+   * How many agent runs the whole tree may contain (ADR 0019).
+   *
+   * `MAX_DELEGATION_DEPTH` bounds how *deep* a chain may go and says nothing
+   * about how *wide* it may get: an agent that delegates once per item in its
+   * input produces one run per item, all at depth 1, and no other dimension
+   * charges them. A model call and a tool call each cost something here; a
+   * delegation hop did not, which made breadth the one unbounded resource in
+   * an otherwise budgeted system.
+   *
+   * Counted across the whole tree against the shared guard, so a child cannot
+   * widen the ceiling its parent was given. Unset means no limit for this
+   * dimension -- never zero.
+   */
+  readonly maxAgentRuns?: number;
 }
 
 export interface BudgetUsage {
   readonly modelCalls: number;
   readonly toolCalls: number;
+  /** Agent runs started anywhere in this tree, the root included. */
+  readonly agentRuns: number;
   readonly elapsedMs: number;
 }
 
@@ -39,6 +56,14 @@ export interface BudgetGuard {
   chargeModelCall(): Result<void>;
   /** Charge one tool call, or fail with BUDGET_EXCEEDED. */
   chargeToolCall(): Result<void>;
+  /**
+   * Charge one agent run, or fail with BUDGET_EXCEEDED.
+   *
+   * Charged by the Supervisor before the agent is resolved or run, so a
+   * refused run costs nothing and emits no lifecycle event -- there is no
+   * half-started run to explain away afterwards.
+   */
+  chargeAgentRun(): Result<void>;
   /** Wall-clock check; fails with BUDGET_EXCEEDED once timeoutMs has passed. */
   checkDeadline(): Result<void>;
   readonly usage: BudgetUsage;

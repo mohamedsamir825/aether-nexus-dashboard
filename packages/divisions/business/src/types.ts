@@ -130,6 +130,24 @@ export interface RejectedOption {
  * explicit that the user makes the strategic call, and a field naming a winner
  * would make every other option decoration.
  */
+/**
+ * A delegation that was refused, rather than one that found nothing.
+ *
+ * "Research established no fact about this" and "the run was denied, or the
+ * tree ran out of its agent-run budget" are different findings, and both
+ * currently land in `unsourced`/`unpriced` -- where the first reads as a thin
+ * corpus and the second is invisible. Naming the refusal keeps them apart
+ * without pretending the input was established either way.
+ */
+export interface RefusedInput {
+  /** The market question or cost driver that went unanswered. */
+  readonly input: string;
+  /** Which division was asked. */
+  readonly division: string;
+  readonly code: string;
+  readonly message: string;
+}
+
 export interface OptionSet {
   readonly question: string;
   readonly criteria: readonly string[];
@@ -142,6 +160,14 @@ export interface OptionSet {
   readonly unsourced: readonly string[];
   /** Cost drivers Finance could not price. Named, never estimated here. */
   readonly unpriced: readonly string[];
+  /**
+   * Delegations that were refused, with the reason.
+   *
+   * A subset of what `unsourced` and `unpriced` already name -- those stay
+   * complete, because the input really was not established. This says which of
+   * those gaps are the system's own doing rather than the evidence's.
+   */
+  readonly refusals: readonly RefusedInput[];
   readonly createdAt: string;
   /** Derived from the structure. Prose never carries a finding of its own. */
   readonly narrative: string;

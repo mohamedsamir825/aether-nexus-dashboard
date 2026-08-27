@@ -8,6 +8,9 @@
  * One guard per top-level dispatch, shared with every child context. Charging
  * happens BEFORE the work, so a refused call costs nothing. An unset budget
  * field means "no limit for this dimension", never zero.
+ *
+ * Three dimensions are charged, not two: `maxAgentRuns` bounds how many runs a
+ * tree may contain (ADR 0019), because depth alone never bounded breadth.
  */
 import { type Result, ok, err } from '../result.ts';
 import { nexusError } from '../errors.ts';
@@ -21,6 +24,7 @@ export function createBudgetGuard(
   const startedAt = clock.now().getTime();
   let modelCalls = 0;
   let toolCalls = 0;
+  let agentRuns = 0;
 
   const elapsed = (): number => clock.now().getTime() - startedAt;
 
@@ -68,10 +72,22 @@ export function createBudgetGuard(
       return ok(undefined);
     },
 
+    chargeAgentRun() {
+      const deadline = checkDeadline();
+      if (!deadline.ok) return deadline;
+
+      const { maxAgentRuns } = budget;
+      if (maxAgentRuns !== undefined && agentRuns >= maxAgentRuns) {
+        return exceeded('maxAgentRuns', maxAgentRuns, agentRuns + 1);
+      }
+      agentRuns += 1;
+      return ok(undefined);
+    },
+
     checkDeadline,
 
     get usage(): BudgetUsage {
-      return { modelCalls, toolCalls, elapsedMs: elapsed() };
+      return { modelCalls, toolCalls, agentRuns, elapsedMs: elapsed() };
     },
   };
 }

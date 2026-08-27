@@ -34,6 +34,7 @@ const set = (over: Partial<OptionSet> = {}): OptionSet => ({
   claims: [],
   unsourced: [],
   unpriced: [],
+  refusals: [],
   createdAt: '2026-06-01T12:00:00.000Z',
   narrative: '',
   ...over,

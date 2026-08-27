@@ -25,3 +25,5 @@ silent edit.
 | [0015](0015-http-source-retriever.md) | A native HTTP `SourceRetriever` | Accepted |
 | [0016](0016-finance-division-and-external-review.md) | Finance Division; what the reference projects contributed | Accepted |
 | [0017](0017-durable-versioned-memory.md) | Durable versioned memory; retrieval named lexical | Accepted |
+| [0018](0018-run-lineage-in-event-payloads.md) | Run lineage in the Supervisor's event payloads | Accepted |
+| [0019](0019-agent-run-budget-dimension.md) | `maxAgentRuns`: breadth is a budgeted resource | Accepted |

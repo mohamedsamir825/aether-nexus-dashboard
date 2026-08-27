@@ -34,6 +34,7 @@ import type {
   Consequence,
   OptionSet,
   OptionSketch,
+  RefusedInput,
   RejectedOption,
   StrategicOption,
   StrategicQuestion,
@@ -155,6 +156,15 @@ function narrate(set: Omit<OptionSet, 'narrative'>): string {
   if (set.unsourced.length > 0) lines.push(`Unsourced market questions: ${set.unsourced.join(', ')}`);
   if (set.unpriced.length > 0) lines.push(`Unpriced cost drivers: ${set.unpriced.join(', ')}`);
 
+  // Said separately, because a reader who sees only the two lines above will
+  // conclude the evidence was thin when in fact the system stopped itself.
+  if (set.refusals.length > 0) {
+    lines.push('', 'Some of those gaps are ours, not the evidence’s:');
+    for (const refusal of set.refusals) {
+      lines.push(`  ! ${refusal.input}: ${refusal.division} run refused (${refusal.code})`);
+    }
+  }
+
   // §5: the user makes the strategic call. Saying so is not decoration -- it
   // is the division declining a job that is not its own.
   lines.push('', 'No option is recommended. The strategic call is the user’s (§5).');
@@ -223,6 +233,7 @@ export function createStrategyDirector(deps: StrategyDirectorOptions = {}): AnyA
       const allClaims: Claim[] = [];
       const unsourced: string[] = [];
       const unpriced: string[] = [];
+      const refusals: RefusedInput[] = [];
       let usage = emptyUsage;
 
       for (const sketch of request.options) {
@@ -237,6 +248,7 @@ export function createStrategyDirector(deps: StrategyDirectorOptions = {}): AnyA
         allClaims.push(...inputs.claims);
         unsourced.push(...inputs.unsourced);
         unpriced.push(...inputs.unpriced);
+        refusals.push(...inputs.refusals);
 
         const { upsides, downsides } = consequencesFor({
           sketch,
@@ -282,6 +294,7 @@ export function createStrategyDirector(deps: StrategyDirectorOptions = {}): AnyA
         claims: allClaims,
         unsourced: [...new Set(unsourced)],
         unpriced: [...new Set(unpriced)],
+        refusals,
         createdAt,
       };
 
@@ -314,7 +327,8 @@ export function createStrategyDirector(deps: StrategyDirectorOptions = {}): AnyA
           (rejected.length > 0 ? `, ${rejected.length} not analysable` : '') +
           (unsourced.length + unpriced.length > 0
             ? `, ${unsourced.length + unpriced.length} input(s) unestablished`
-            : ''),
+            : '') +
+          (refusals.length > 0 ? ` (${refusals.length} refused, not unanswered)` : ''),
         // Business asserts nothing itself. The evidence behind its options
         // belongs to Research and travels with the claims that cite it.
         evidence: [],

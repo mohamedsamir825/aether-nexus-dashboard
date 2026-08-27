@@ -451,6 +451,7 @@ describe('an absent record is never read as a decision', () => {
       claims: [],
       unsourced: [],
       unpriced: [],
+      refusals: [],
       createdAt: '2026-03-01T00:00:00.000Z',
       narrative: 'n',
     } as OptionSet;
@@ -595,6 +596,7 @@ describe('rememberDeliberation records only what it was given', () => {
       claims: [],
       unsourced: [],
       unpriced: [],
+      refusals: [],
       createdAt: '2026-03-01T00:00:00.000Z',
       narrative: 'n',
     } as OptionSet;

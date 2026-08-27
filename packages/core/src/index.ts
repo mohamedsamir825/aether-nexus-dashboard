@@ -49,6 +49,7 @@ export * from './runtime/budgeted-router.ts';
 export * from './runtime/schema-validator.ts';
 export * from './runtime/tool-belt.ts';
 export * from './runtime/supervisor.ts';
+export * from './runtime/run-trace.ts';
 
 // Configuration and composition
 export * from './config/config.ts';

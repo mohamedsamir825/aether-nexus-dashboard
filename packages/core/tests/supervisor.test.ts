@@ -29,8 +29,13 @@ function harness(policies: readonly PermissionPolicy[] = [dispatchGrant]) {
   const agents = createAgentRegistry();
   const tools = createToolRegistry();
   const events = createInMemoryEventBus();
-  const seen: { type: string; payload: unknown }[] = [];
-  events.subscribe('*', (e) => void seen.push({ type: e.type, payload: e.payload }));
+  // `runId` is captured too: lineage tests need to check that a child's
+  // parentRunId is the parent's ACTUAL run id, which lives on the envelope.
+  const seen: { type: string; payload: unknown; runId?: string }[] = [];
+  events.subscribe(
+    '*',
+    (e) => void seen.push({ type: e.type, payload: e.payload, ...(e.runId ? { runId: e.runId } : {}) }),
+  );
 
   const supervisor = createSupervisor({
     agents,
@@ -168,12 +173,14 @@ describe('supervisor', () => {
     if (result.ok) expect(result.value.summary).toBe('delegated:handled by specialist');
   });
 
-  test('breaks a delegation cycle instead of recursing forever', async () => {
+  test('names a delegation cycle and refuses it at the first re-entry', async () => {
     const { agents, supervisor } = harness();
+    let hops = 0;
     agents.register(
       stubAgent({
         id: 'loop',
         handler: async (_task, context) => {
+          hops += 1;
           const nested = await context.delegate({
             target: { agentId: agentId('loop') },
             task: task('again'),
@@ -186,13 +193,90 @@ describe('supervisor', () => {
 
     const result = await supervisor.dispatch({ target: { agentId: agentId('loop') }, task: task('x') });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toContain('delegation depth exceeded');
+    if (!result.ok) {
+      // UNSUPPORTED, not INTERNAL: nothing malfunctioned, the shape was refused.
+      expect(result.error.code).toBe('UNSUPPORTED');
+      expect(result.error.message).toContain('delegation cycle: loop -> loop');
+      expect(result.error.details?.['path']).toEqual(['loop', 'loop']);
+    }
+    // Refused the moment the loop closed, not eight wasted hops later.
+    expect(hops).toBe(1);
   });
 
-  test('derives delegation depth from the run tree, not from the caller (G1)', async () => {
+  test('an agent may be asked twice in one tree when it is not its own ancestor', async () => {
+    // A -> B and A -> C -> B is not a cycle. Treating a repeated agent as one
+    // would break every real chain: Business asks Research directly AND asks
+    // Finance, which asks Research for the same market facts.
+    const { agents, supervisor } = harness();
+    let specialistRuns = 0;
+    agents.register(
+      stubAgent({
+        id: 'specialist',
+        handler: async () => {
+          specialistRuns += 1;
+          return ok({ output: {}, summary: 'specialist', evidence: [], usage: emptyUsage });
+        },
+      }),
+    );
+    agents.register(
+      stubAgent({
+        id: 'middle',
+        handler: async (_t, context) =>
+          context.delegate({ target: { agentId: agentId('specialist') }, task: task('via middle') }),
+      }),
+    );
+    agents.register(
+      stubAgent({
+        id: 'lead2',
+        handler: async (_t, context) => {
+          const direct = await context.delegate({
+            target: { agentId: agentId('specialist') },
+            task: task('direct'),
+          });
+          if (!direct.ok) return direct;
+          const viaMiddle = await context.delegate({
+            target: { agentId: agentId('middle') },
+            task: task('indirect'),
+          });
+          if (!viaMiddle.ok) return viaMiddle;
+          return ok({ output: {}, summary: 'both', evidence: [], usage: emptyUsage });
+        },
+      }),
+    );
+
+    const result = await supervisor.dispatch({ target: { agentId: agentId('lead2') }, task: task('x') });
+    expect(result.ok, result.ok ? '' : result.error.message).toBe(true);
+    expect(specialistRuns).toBe(2);
+  });
+
+  test('the depth bound still stops a long chain that is NOT a cycle', async () => {
+    // The cycle guard must not have made the backstop unreachable: a ladder of
+    // distinct agents never repeats an ancestor and can only be stopped by depth.
+    const { agents, supervisor } = harness();
+    for (let i = 0; i < 14; i += 1) {
+      agents.register(
+        stubAgent({
+          id: `hop${i}`,
+          handler: async (_t, context) =>
+            context.delegate({ target: { agentId: agentId(`hop${i + 1}`) }, task: task('on') }),
+        }),
+      );
+    }
+
+    const result = await supervisor.dispatch({ target: { agentId: agentId('hop0') }, task: task('x') });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain('delegation depth exceeded');
+      expect(result.error.code).not.toBe('UNSUPPORTED');
+    }
+  });
+
+  test('derives lineage from the run tree, not from the caller (G1)', async () => {
     // An Orchestrator (Phase 4) will call the PUBLIC Supervisor.delegate(), not
     // context.delegate(). That path used to pass a hardcoded depth of 1, so the
-    // cycle guard never fired and a loop recursed until the stack died.
+    // guard never fired and a loop recursed until the stack died. Depth and the
+    // ancestor path are both derived from the in-flight record now, so the
+    // public entry point is bounded exactly like the context one.
     const { agents, supervisor } = harness();
     let hops = 0;
 
@@ -214,8 +298,35 @@ describe('supervisor', () => {
     const result = await supervisor.dispatch({ target: { agentId: agentId('loop') }, task: task('x') });
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toContain('delegation depth exceeded');
+    if (!result.ok) expect(result.error.message).toContain('delegation cycle');
     // Bounded, not merely "eventually stopped".
+    expect(hops).toBe(1);
+  });
+
+  test('the public delegate() path derives DEPTH from the tree too', async () => {
+    // The same G1 property, on the dimension the cycle guard does not cover: a
+    // ladder of distinct agents run through Supervisor.delegate() must still
+    // hit the depth bound rather than restarting the count on every hop.
+    const { agents, supervisor } = harness();
+    let hops = 0;
+    for (let i = 0; i < 14; i += 1) {
+      agents.register(
+        stubAgent({
+          id: `rung${i}`,
+          handler: async (_t, context) => {
+            hops += 1;
+            return supervisor.delegate(
+              { target: { agentId: agentId(`rung${i + 1}`) }, task: task('up') },
+              { runId: context.runId, budget: context.budget },
+            );
+          },
+        }),
+      );
+    }
+
+    const result = await supervisor.dispatch({ target: { agentId: agentId('rung0') }, task: task('x') });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('delegation depth exceeded');
     expect(hops).toBeLessThanOrEqual(10);
   });
 
@@ -331,5 +442,271 @@ describe('supervisor', () => {
     });
 
     expect((await supervisor.health()).status).toBe('unavailable');
+  });
+});
+
+/**
+ * Lineage (ADR 0018) and the agent-run budget dimension (ADR 0019).
+ *
+ * The property under test is not "the field is present" but "the field cannot
+ * be anything other than what the Supervisor itself knows". A lineage an agent
+ * could influence would be worse than none, because a trace assembled from it
+ * would look authoritative.
+ */
+describe('run lineage in the task payloads', () => {
+  type Payload = Record<string, unknown>;
+  type Seen = { type: string; payload: unknown; runId?: string };
+  const started = (seen: Seen[]): Payload[] =>
+    seen.filter((e) => e.type === 'agent.task.started').map((e) => e.payload as Payload);
+  /** The run id an agent's `started` event was published under. */
+  const runIdOf = (seen: Seen[], agent: string): string | undefined =>
+    seen.find(
+      (e) => e.type === 'agent.task.started' && (e.payload as Payload)['agentId'] === agent,
+    )?.runId;
+
+  test('parentRunId names the IMMEDIATE parent, not the root', async () => {
+    const { agents, supervisor, seen } = harness();
+    agents.register(stubAgent({ id: 'leaf' }));
+    agents.register(
+      stubAgent({
+        id: 'mid',
+        handler: async (_t, context) =>
+          context.delegate({ target: { agentId: agentId('leaf') }, task: task('leaf') }),
+      }),
+    );
+    agents.register(
+      stubAgent({
+        id: 'top',
+        handler: async (_t, context) =>
+          context.delegate({ target: { agentId: agentId('mid') }, task: task('mid') }),
+      }),
+    );
+
+    expect((await supervisor.dispatch({ target: { agentId: agentId('top') }, task: task('x') })).ok)
+      .toBe(true);
+
+    const byAgent = new Map(started(seen).map((p) => [p['agentId'] as string, p]));
+    const top = byAgent.get('top') as Payload;
+    const mid = byAgent.get('mid') as Payload;
+    const leaf = byAgent.get('leaf') as Payload;
+
+    // The root has no parent. Absent, not null and not its own id.
+    expect(top).not.toHaveProperty('parentRunId');
+    expect(top['depth']).toBe(0);
+
+    const topRun = runIdOf(seen, 'top');
+    const midRun = runIdOf(seen, 'mid');
+    expect(topRun).toBeDefined();
+    expect(midRun).toBeDefined();
+
+    // The assertion that tells the two designs apart: if lineage recorded the
+    // ROOT of the tree rather than the immediate parent, leaf would point at
+    // `top`. It points at `mid`.
+    expect(mid['parentRunId']).toBe(topRun);
+    expect(leaf['parentRunId']).toBe(midRun);
+    expect(leaf['parentRunId']).not.toBe(topRun);
+    expect(mid['depth']).toBe(1);
+    expect(leaf['depth']).toBe(2);
+  });
+
+  test('division and role come from the descriptor, never from the agent', async () => {
+    const { agents, supervisor, seen } = harness();
+    agents.register(
+      stubAgent({
+        id: 'liar',
+        division: 'research',
+        role: 'analyst',
+        // An agent that tries to describe itself as somebody else. The output
+        // is data; the descriptor is the registration.
+        handler: async () =>
+          ok({
+            output: { division: 'finance', role: 'cfo', depth: 99, agentId: 'finance.cfo' },
+            summary: 'claims to be finance',
+            evidence: [],
+            usage: emptyUsage,
+          }),
+      }),
+    );
+
+    // Every channel an agent or caller could speak through claims something
+    // else: the task input, the request metadata, and the returned output.
+    // A lineage assembled from any of them fails here.
+    const result = await supervisor.dispatch({
+      target: { agentId: agentId('liar') },
+      task: {
+        id: 't1',
+        objective: 'x',
+        input: { division: 'finance', role: 'cfo', agentId: 'finance.cfo', depth: 99 },
+      },
+      metadata: { division: 'finance', role: 'cfo', agentId: 'finance.cfo', depth: 99 },
+    });
+    expect(result.ok).toBe(true);
+
+    const payload = started(seen)[0] as Payload;
+    expect(payload['division']).toBe('research');
+    expect(payload['role']).toBe('analyst');
+    expect(payload['agentId']).toBe('liar');
+    expect(payload['depth']).toBe(0);
+  });
+
+  test('depth cannot be forged through the task input or the request metadata', async () => {
+    const { agents, supervisor, seen } = harness();
+    agents.register(stubAgent({ id: 'solo' }));
+
+    const result = await supervisor.dispatch({
+      target: { agentId: agentId('solo') },
+      task: { id: 't1', objective: 'x', input: { depth: 7, parentRunId: 'run_fake' } },
+      metadata: { depth: 7, parentRunId: 'run_fake', division: 'finance' },
+    });
+    expect(result.ok).toBe(true);
+
+    const payload = started(seen)[0] as Payload;
+    expect(payload['depth']).toBe(0);
+    expect(payload).not.toHaveProperty('parentRunId');
+    expect(payload['division']).toBe('test');
+  });
+
+  test('a denied dispatch is recorded with lineage but never becomes a run', async () => {
+    const denyAgents = allowListPolicy('system-only', [
+      { subject: { kind: 'system' }, capabilities: [DISPATCH_CAPABILITY] },
+    ]);
+    const { agents, supervisor, seen } = harness([denyAgents]);
+    agents.register(stubAgent({ id: 'inner', division: 'finance', role: 'fpa' }));
+    agents.register(
+      stubAgent({
+        id: 'outer',
+        handler: async (_t, context) =>
+          context.delegate({ target: { agentId: agentId('inner') }, task: task('nope') }),
+      }),
+    );
+
+    const result = await supervisor.dispatch({ target: { agentId: agentId('outer') }, task: task('x') });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('PERMISSION_DENIED');
+
+    const denied = seen.find((e) => e.type === 'agent.dispatch.denied')?.payload as Payload;
+    expect(denied['agentId']).toBe('inner');
+    expect(denied['division']).toBe('finance');
+    expect(denied['depth']).toBe(1);
+    // Refused, so it never started. The permission trail records the attempt;
+    // the run tree must not show a run that did not happen.
+    expect(started(seen).map((p) => p['agentId'])).toEqual(['outer']);
+  });
+
+  test('lineage is a record, not a permission', async () => {
+    // Everything about the payload says this delegation is legitimate. The
+    // subject still lacks the capability, and that is what decides.
+    const systemOnly = allowListPolicy('system-only', [
+      { subject: { kind: 'system' }, capabilities: [DISPATCH_CAPABILITY] },
+    ]);
+    const { agents, supervisor } = harness([systemOnly]);
+    agents.register(stubAgent({ id: 'target' }));
+    agents.register(
+      stubAgent({
+        id: 'caller',
+        handler: async (_t, context) =>
+          context.delegate({ target: { agentId: agentId('target') }, task: task('please') }),
+      }),
+    );
+
+    const result = await supervisor.dispatch({ target: { agentId: agentId('caller') }, task: task('x') });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('PERMISSION_DENIED');
+  });
+});
+
+describe('maxAgentRuns bounds the breadth of a tree', () => {
+  /** One agent that fans out `n` times to the same leaf. */
+  function fanOut(n: number) {
+    const built = harness();
+    built.agents.register(stubAgent({ id: 'leaf' }));
+    built.agents.register(
+      stubAgent({
+        id: 'fan',
+        handler: async (_t, context) => {
+          for (let i = 0; i < n; i += 1) {
+            const child = await context.delegate({
+              target: { agentId: agentId('leaf') },
+              task: task(`leaf-${i}`),
+            });
+            if (!child.ok) return child;
+          }
+          return ok({ output: {}, summary: 'fanned', evidence: [], usage: emptyUsage });
+        },
+      }),
+    );
+    return built;
+  }
+
+  test('the fourth run of a tree limited to three is refused', async () => {
+    // Depth never catches this: every child sits at depth 1. Breadth was the
+    // one unbounded resource before this dimension existed.
+    const built = fanOut(5);
+    const result = await built.supervisor.dispatch({
+      target: { agentId: agentId('fan') },
+      task: task('x'),
+      budget: { maxAgentRuns: 3 },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('BUDGET_EXCEEDED');
+      expect(result.error.details?.['dimension']).toBe('maxAgentRuns');
+    }
+    // Three runs happened: the root and two children. The refused one left no
+    // trace, because it is charged before anything is published.
+    expect(built.seen.filter((e) => e.type === 'agent.task.started')).toHaveLength(3);
+  });
+
+  test('a tree within its ceiling runs untouched', async () => {
+    const built = fanOut(2);
+    const result = await built.supervisor.dispatch({
+      target: { agentId: agentId('fan') },
+      task: task('x'),
+      budget: { maxAgentRuns: 3 },
+    });
+    expect(result.ok, result.ok ? '' : result.error.message).toBe(true);
+    expect(built.seen.filter((e) => e.type === 'agent.task.started')).toHaveLength(3);
+  });
+
+  test('an unset ceiling is no limit, never zero', async () => {
+    // The distinction every budget dimension turns on. Omitting the field must
+    // not silently mean "no runs allowed".
+    const built = fanOut(6);
+    const result = await built.supervisor.dispatch({
+      target: { agentId: agentId('fan') },
+      task: task('x'),
+    });
+    expect(result.ok, result.ok ? '' : result.error.message).toBe(true);
+    expect(built.seen.filter((e) => e.type === 'agent.task.started')).toHaveLength(7);
+  });
+
+  test('a child cannot widen the ceiling it was given', async () => {
+    // The guard is shared across the tree (§18.2). A delegated run asking for a
+    // bigger budget is asking the parent's guard, which does not grow.
+    const built = harness();
+    built.agents.register(stubAgent({ id: 'leaf' }));
+    built.agents.register(
+      stubAgent({
+        id: 'greedy',
+        handler: async (_t, context) => {
+          // Its own budget object claims a larger allowance; the guard decides.
+          const first = await context.delegate({
+            target: { agentId: agentId('leaf') },
+            task: task('one'),
+          });
+          if (!first.ok) return first;
+          return context.delegate({ target: { agentId: agentId('leaf') }, task: task('two') });
+        },
+      }),
+    );
+
+    const result = await built.supervisor.dispatch({
+      target: { agentId: agentId('greedy') },
+      task: task('x'),
+      budget: { maxAgentRuns: 2 },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('BUDGET_EXCEEDED');
   });
 });

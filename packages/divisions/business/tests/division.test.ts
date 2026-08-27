@@ -536,3 +536,101 @@ describe('security boundaries', () => {
     expect(system.registries.tools.list()).toHaveLength(2);
   });
 });
+
+describe('a refused delegation is named as a refusal, not as thin evidence', () => {
+  /**
+   * The distinction: "Research established nothing about this market" and
+   * "the Research run never happened" both leave the question unsourced, and
+   * only one of them is a statement about the market. A reader given just
+   * `unsourced` would conclude the corpus is thin when the system stopped
+   * itself — the same collapse the Finance surprise KPI exists to avoid.
+   */
+  function withoutResearch() {
+    const system = createNexusSystem({
+      config: unwrap(loadConfig({})),
+      policies: [allThree],
+      logger: nullLogger,
+      clock,
+    });
+    // Research is simply not installed. A real deployment misconfiguration,
+    // and the cleanest way to make the delegation itself fail.
+    for (const division of [
+      createFinanceDivision({
+        actuals: createFixtureActualsSource([ACTUALS]),
+        sensitivities: { engineering: { headcount: 80_000 } },
+        horizon: ['current'],
+        observedDrivers: { current: [{ id: 'headcount', value: 5 }] },
+      }),
+      createBusinessDivision(),
+    ]) {
+      const installed = installDivision({
+        division,
+        registerAgent: (a: AnyAgent) => system.registries.agents.register(a),
+        registerTool: (t: AnyTool) => system.registries.tools.register(t),
+      });
+      expect(installed.ok, installed.ok ? '' : installed.error.message).toBe(true);
+    }
+    return { system, events: [] as NexusEvent[] };
+  }
+
+  test('an uninstalled division shows up as a refusal against that division', async () => {
+    const result = await ask(withoutResearch());
+    expect(result.ok, result.ok ? '' : result.error.message).toBe(true);
+    if (!result.ok) return;
+    const set = result.value.output as OptionSet;
+
+    // Still unsourced — that part is true and unchanged.
+    expect(set.unsourced).toContain('hosted delivery');
+    // And now attributed: the gap is ours, and it names which division and why.
+    expect(set.refusals.length).toBeGreaterThan(0);
+    expect(set.refusals.every((r) => r.division === 'research')).toBe(true);
+    expect(set.refusals.every((r) => r.code === 'NOT_FOUND')).toBe(true);
+    expect(set.narrative).toContain('NOT_FOUND');
+    expect(set.narrative).toContain('not the evidence');
+  });
+
+  test('the same holds for Finance: an unpriced driver names WHY it is unpriced', async () => {
+    // Symmetric on purpose. Testing only the Research branch would leave the
+    // Finance one free to drop its refusals with nothing noticing.
+    const system = createNexusSystem({
+      config: unwrap(loadConfig({})),
+      policies: [allThree],
+      logger: nullLogger,
+      clock,
+    });
+    for (const division of [
+      createResearchDivision({
+        retriever: createFixtureRetriever({ documents: corpus, now: () => clock.now() }),
+      }),
+      createBusinessDivision(),
+    ]) {
+      expect(
+        installDivision({
+          division,
+          registerAgent: (a: AnyAgent) => system.registries.agents.register(a),
+          registerTool: (t: AnyTool) => system.registries.tools.register(t),
+        }).ok,
+      ).toBe(true);
+    }
+
+    const result = await ask({ system, events: [] as NexusEvent[] });
+    expect(result.ok, result.ok ? '' : result.error.message).toBe(true);
+    if (!result.ok) return;
+    const set = result.value.output as OptionSet;
+
+    expect(set.unpriced).toContain('engineering');
+    expect(set.refusals.some((r) => r.division === 'finance')).toBe(true);
+    expect(set.refusals.every((r) => r.code === 'NOT_FOUND')).toBe(true);
+  });
+
+  test('a fully installed system reports NO refusals', async () => {
+    // The control. Without it, a `refusals` array that is always populated
+    // would pass the test above and mean nothing.
+    const result = await ask(build());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const set = result.value.output as OptionSet;
+    expect(set.refusals).toEqual([]);
+    expect(set.narrative).not.toContain('not the evidence');
+  });
+});

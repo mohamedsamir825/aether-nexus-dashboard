@@ -19,6 +19,11 @@
  * either gap with a plausible number would put Business's guess where another
  * division's accountable answer belongs -- and it would look identical to the
  * real thing in the output.
+ *
+ * It also keeps apart the two ways a gap happens. A delegation that was
+ * *refused* -- denied, or stopped by the tree's agent-run budget -- is recorded
+ * in `refusals` as well as in the gap it caused. Without that, a run the system
+ * cut short reads exactly like a market nobody has written about.
  */
 import {
   type AgentContext,
@@ -33,7 +38,7 @@ import {
   emptyUsage,
   mergeUsage,
 } from '@nexus/core';
-import type { OptionSketch, PricedConsequence } from './types.ts';
+import type { OptionSketch, PricedConsequence, RefusedInput } from './types.ts';
 
 const RESEARCH = divisionId('research');
 const FINANCE = divisionId('finance');
@@ -62,6 +67,8 @@ export interface SourcedInputs {
   readonly unsourced: readonly string[];
   /** Cost drivers Finance could not price. */
   readonly unpriced: readonly string[];
+  /** Of those gaps, the ones caused by a refused run rather than by the evidence. */
+  readonly refusals: readonly RefusedInput[];
   readonly usage: UsageMetrics;
 }
 
@@ -86,6 +93,7 @@ export async function gatherInputs(params: {
   const priced: PricedConsequence[] = [];
   const unsourced: string[] = [];
   const unpriced: string[] = [];
+  const refusals: RefusedInput[] = [];
   let usage: UsageMetrics = emptyUsage;
 
   // --- market facts, from Research -----------------------------------------
@@ -100,7 +108,19 @@ export async function gatherInputs(params: {
     });
 
     if (delegated.ok) usage = mergeUsage(usage, delegated.value.usage);
-    if (!delegated.ok || delegated.value.evidence.length === 0) {
+    if (!delegated.ok) {
+      // Refused, not unproductive. Both leave the question unsourced -- only
+      // one of them is a statement about the market.
+      unsourced.push(question);
+      refusals.push({
+        input: question,
+        division: String(RESEARCH),
+        code: delegated.error.code,
+        message: delegated.error.message,
+      });
+      continue;
+    }
+    if (delegated.value.evidence.length === 0) {
       unsourced.push(question);
       continue;
     }
@@ -176,10 +196,18 @@ export async function gatherInputs(params: {
       }
     } else {
       unpriced.push(...drivers);
+      for (const driver of drivers) {
+        refusals.push({
+          input: driver,
+          division: String(FINANCE),
+          code: delegated.error.code,
+          message: delegated.error.message,
+        });
+      }
     }
   }
 
-  return { claims, evidence, priced, unsourced, unpriced, usage };
+  return { claims, evidence, priced, unsourced, unpriced, refusals, usage };
 }
 
 /** Ids of the claims a consequence may cite. */
