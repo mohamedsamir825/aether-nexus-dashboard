@@ -17,6 +17,15 @@ nothing more.
 | 2 | **Z.E.R.O. / THINKIFO** (`references/zero-*.jpg`) | Voice + wake word, module status column, transcript line, large right-aligned numbers, corner brackets, spaced monospace type | Its name, branding, or identity |
 | 3 | **Maxton** (Envato Elements, by codervent) | **Information density only** — how 8–10 widgets fit one screen without crowding | Its colours, look, illustrations, or code |
 
+## Assets and tokens
+
+[`ASSETS.md`](ASSETS.md) records the researched decisions — map data and its
+licence, the colour system, earcons, motion, typography — with what is settled
+and what is deliberately still open.
+
+The colour system is not a mood board: `packages/design-tokens` builds it in
+OKLCH and verifies every text pairing against WCAG in tests.
+
 ## Files
 
 `references/` holds frames extracted from a reference video the project owner

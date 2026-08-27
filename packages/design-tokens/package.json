@@ -1,0 +1,11 @@
+{
+  "name": "@nexus/design-tokens",
+  "version": "0.0.1",
+  "private": true,
+  "description": "NEXUS design tokens, authored in OKLCH and verified against WCAG contrast. Zero dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "bun test", "typecheck": "tsc --noEmit", "css": "bun run src/bin/emit-css.ts" }
+}
