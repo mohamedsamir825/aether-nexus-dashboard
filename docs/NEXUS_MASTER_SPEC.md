@@ -886,7 +886,7 @@ registered until a free key is added.
 ADR 0007 is explicit that it belongs above the Supervisor rather than inside it.
 It lands with the first workflow that genuinely decomposes.
 
-### Phase 5 — Research Intelligence
+### Phase 5 — Research Intelligence ✅ FOUNDATION COMPLETE
 **Objective:** first division; the evidence discipline made real.
 **Dependencies:** Phase 4.
 **Deliverables:** `Claim` contract with epistemic status; `Division` contract;
@@ -894,8 +894,14 @@ Research roster (Director, Web Research, Source Verification, Fact Extraction,
 Cross-source Comparison); real research tools; `Verifier` implementation.
 **Tests:** every FACT carries evidence; conflicts represented not collapsed;
 fabricated-source detection; division registration requires no Core edit.
-**Exit:** a research question returns a briefing with traceable sources and
-explicit conflicts.
+**Exit:** ✅ met. A research request returns typed claims with full provenance,
+explicit contradictions, and a synthesis derived from the claims rather than the
+other way round. `Claim` and `Division` contracts added (ADR 0013); the pipeline
+is deterministic and runs with no provider and no network. See
+[`RESEARCH_DIVISION.md`](RESEARCH_DIVISION.md) for semantics and limitations.
+
+**Not yet:** a `Verifier` that re-reads source text, semantic relevance, web
+retrieval, and cross-run contradiction — each behind an existing seam.
 
 ### Phase 6 — Finance Intelligence
 **Objective:** the hardest division; the continuous forecast loop.
@@ -1142,8 +1148,8 @@ explicitly. Deny-by-default still holds — omitting the grant blocks the path.
 
 | # | Gap | Needed by | Phase |
 | --- | --- | --- | --- |
-| A1 | `Claim` with epistemic status (§6.1) | Research | 5 |
-| A2 | `Division` contract: roster, KPIs, escalation, collaboration interface | All divisions | 5 |
+| A1 | ~~`Claim` with epistemic status~~ ✅ done (ADR 0013) | Research | — |
+| A2 | `Division` contract ✅ done (ADR 0013) — KPIs still deferred | All divisions | — |
 | A3 | Memory versioning and supersession with validity intervals | User model, forecast vintages | 10 |
 | A4 | ~~`project` memory scope~~ ✅ done | Project memory | — |
 | A5 | Semantic retrieval (today: substring) | Memory quality | 10 |
@@ -1155,7 +1161,7 @@ explicitly. Deny-by-default still holds — omitting the grant blocks the path.
 | A11 | `Notification` contract | Alerts | 12 |
 | A12 | `SchemaValidator` implementation (seam exists, unimplemented) | Every tool | 3 |
 | A13 | `ComputeWorker` contract for Python | Quantitative finance | 6+ |
-| A14 | Persisted conflict representation in evidence | Research | 5 |
+| A14 | Persisted conflict representation ✅ done — `Contradiction` (ADR 0013) | Research | — |
 
 ### 27.5 What the foundation got right
 

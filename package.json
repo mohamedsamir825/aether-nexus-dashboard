@@ -14,11 +14,12 @@
     "packages/*",
     "packages/providers/*",
     "packages/tools/*",
+    "packages/divisions/*",
     "apps/*"
   ],
   "scripts": {
     "test": "bun test packages",
-    "typecheck": "tsc --noEmit -p packages/core && tsc --noEmit -p packages/providers/openai-compatible && tsc --noEmit -p packages/providers/google && tsc --noEmit -p packages/tools/arithmetic && tsc --noEmit -p apps/dashboard",
+    "typecheck": "tsc --noEmit -p packages/core && tsc --noEmit -p packages/providers/openai-compatible && tsc --noEmit -p packages/providers/google && tsc --noEmit -p packages/tools/arithmetic && tsc --noEmit -p packages/divisions/research && tsc --noEmit -p apps/dashboard",
     "health": "bun run packages/core/src/bin/health.ts",
     "dashboard:dev": "bun run --filter '@nexus/dashboard' dev",
     "dashboard:build": "bun run --filter '@nexus/dashboard' build",

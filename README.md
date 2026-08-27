@@ -2,9 +2,9 @@
 
 A Personal Intelligence & Execution System, built to grow into a Business/Executive OS.
 
-**Status: Phases 1–4 complete.** The Core, two provider adapters, rate-limit and
-quota aware routing, the first real tool, and a task that crosses every layer all
-exist. No divisions, no agents beyond a demo one, and no UI wiring — that is
+**Status: Phases 1–5 foundation complete.** The Core, two provider adapters,
+rate-limit and quota aware routing, the first real tool, and the first real
+Division (Research) all exist. No other divisions and no UI wiring — that is
 deliberate, not incomplete work. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what
 comes next and what is intentionally deferred.
 
@@ -14,6 +14,7 @@ comes next and what is intentionally deferred.
 packages/core/       The Core: contracts, registries, runtime primitives. Zero dependencies.
 packages/providers/  Model provider adapters (OpenAI-compatible, Google Gemini).
 packages/tools/      Tools agents can invoke (arithmetic).
+packages/divisions/  Divisions (research). See docs/RESEARCH_DIVISION.md.
 apps/dashboard/      A vendored third-party dashboard template. NOT wired to Core.
 docs/                Architecture, decision records, roadmap, design references.
 ```
@@ -22,7 +23,7 @@ docs/                Architecture, decision records, roadmap, design references.
 
 ```bash
 bun install
-bun test packages # 297 tests, no network, no credentials, zero API cost
+bun test packages # 368 tests, no network, no credentials, zero API cost
 bun run health    # honest system status; exits non-zero while unavailable
 bun run demo      # one task across every layer, end to end
 ```

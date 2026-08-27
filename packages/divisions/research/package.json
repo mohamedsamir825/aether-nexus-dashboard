@@ -1,0 +1,12 @@
+{
+  "name": "@nexus/division-research",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Research Division. Typed claims with provenance, over the NEXUS Core. Zero dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "bun test", "typecheck": "tsc --noEmit" },
+  "dependencies": { "@nexus/core": "workspace:*" }
+}

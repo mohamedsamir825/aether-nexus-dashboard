@@ -37,6 +37,13 @@
         "@nexus/tool-arithmetic": "workspace:*",
       },
     },
+    "packages/divisions/research": {
+      "name": "@nexus/division-research",
+      "version": "0.0.1",
+      "dependencies": {
+        "@nexus/core": "workspace:*",
+      },
+    },
     "packages/providers/google": {
       "name": "@nexus/provider-google",
       "version": "0.0.1",
@@ -163,6 +170,8 @@
     "@nexus/core": ["@nexus/core@workspace:packages/core"],
 
     "@nexus/dashboard": ["@nexus/dashboard@workspace:apps/dashboard"],
+
+    "@nexus/division-research": ["@nexus/division-research@workspace:packages/divisions/research"],
 
     "@nexus/provider-google": ["@nexus/provider-google@workspace:packages/providers/google"],
 
