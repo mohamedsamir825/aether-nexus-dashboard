@@ -20,7 +20,14 @@
  * these become its implementation rather than something to unpick.
  */
 import { accuracyOf, type ForecastLedger } from './ledger.ts';
-import type { Actuals, DriverAttribution, ForecastVintage } from './types.ts';
+import type {
+  Actuals,
+  DriverAttribution,
+  ForecastVintage,
+  ScenarioSet,
+  SurpriseAssessment,
+  Variance,
+} from './types.ts';
 
 export interface AccuracyByHorizon {
   /** How many vintages before the period this forecast was made. */
@@ -120,10 +127,109 @@ export function timeToForecastUpdate(params: {
   return revised - landed;
 }
 
+/**
+ * Was this variance anticipated? (§4.2, fifth KPI.)
+ *
+ * ## The lookup time is the whole design
+ *
+ * `scenarios` must be the set that was on record **before the actuals
+ * landed** -- fetched with `scenariosAsOf(actuals.validatedAt)`. Passing the
+ * current set instead would grade the division with hindsight: the scenarios
+ * this run produced were computed *from* these actuals, so they would
+ * "anticipate" every one of them and the KPI would report a perfect record
+ * forever.
+ *
+ * The caller owns that fetch, and the assessment records which set it used and
+ * when that set was dated, so the reader can check it was not the wrong one.
+ */
+export function assessSurprises(params: {
+  readonly variances: readonly Variance[];
+  /** The set in force before the actuals. Null means none was. */
+  readonly scenarios: ScenarioSet | null;
+}): readonly SurpriseAssessment[] {
+  const material = params.variances.filter((v) => v.material);
+
+  return material.map((variance): SurpriseAssessment => {
+    // No record at all. Not measurable -- and emphatically not "unflagged",
+    // which would blame the division for an empty archive.
+    if (params.scenarios === null) {
+      return {
+        lineItem: variance.lineItem,
+        period: variance.period,
+        actual: variance.actual,
+        status: 'unmeasured',
+      };
+    }
+
+    const covering = params.scenarios.paths.filter((path) =>
+      path.amounts.some(
+        (amount) => amount.lineItem === variance.lineItem && amount.period === variance.period,
+      ),
+    );
+
+    // The set exists but says nothing about this line item and period, which
+    // is still an absence of measurement rather than a missed call.
+    if (covering.length === 0) {
+      return {
+        lineItem: variance.lineItem,
+        period: variance.period,
+        actual: variance.actual,
+        status: 'unmeasured',
+        scenarioSet: params.scenarios.basedOnVintage,
+        scenariosDatedFrom: params.scenarios.createdAt,
+      };
+    }
+
+    const values = covering.flatMap((path) =>
+      path.amounts
+        .filter((a) => a.lineItem === variance.lineItem && a.period === variance.period)
+        .map((a) => ({ path: path.id, value: a.value })),
+    );
+    const low = Math.min(...values.map((v) => v.value));
+    const high = Math.max(...values.map((v) => v.value));
+
+    // Anticipated if the actual falls within the span the paths described.
+    // Inclusive: a path that named exactly this number flagged it.
+    const hit = variance.actual >= low && variance.actual <= high;
+    const nearest = values.reduce((best, v) =>
+      Math.abs(v.value - variance.actual) < Math.abs(best.value - variance.actual) ? v : best,
+    );
+
+    return {
+      lineItem: variance.lineItem,
+      period: variance.period,
+      actual: variance.actual,
+      status: hit ? 'flagged' : 'unflagged',
+      scenarioSet: params.scenarios.basedOnVintage,
+      scenariosDatedFrom: params.scenarios.createdAt,
+      ...(hit ? { coveredBy: nearest.path } : {}),
+      range: { low, high },
+    };
+  });
+}
+
+/** How many surprises went unflagged, and how many could not be judged. */
+export interface SurpriseTally {
+  readonly flagged: number;
+  readonly unflagged: number;
+  readonly unmeasured: number;
+}
+
+export function tallySurprises(assessments: readonly SurpriseAssessment[]): SurpriseTally {
+  return {
+    flagged: assessments.filter((a) => a.status === 'flagged').length,
+    unflagged: assessments.filter((a) => a.status === 'unflagged').length,
+    unmeasured: assessments.filter((a) => a.status === 'unmeasured').length,
+  };
+}
+
 export interface FinanceKpis {
   readonly accuracy: readonly AccuracyByHorizon[];
   readonly explanation: ExplanationRatio;
   readonly msToForecastUpdate: number | null;
+  /** §4.2's fifth KPI. Empty when no variance was material. */
+  readonly surprises: readonly SurpriseAssessment[];
+  readonly surpriseTally: SurpriseTally;
 }
 
 export function financeKpis(params: {
@@ -131,7 +237,18 @@ export function financeKpis(params: {
   readonly actuals: Actuals;
   readonly attributions: readonly DriverAttribution[];
   readonly revised: ForecastVintage | null;
+  readonly variances?: readonly Variance[];
+  /**
+   * The scenario set on record before these actuals. Omitted means no history
+   * was consulted, and every material variance reports `unmeasured`.
+   */
+  readonly priorScenarios?: ScenarioSet | null;
 }): FinanceKpis {
+  const surprises = assessSurprises({
+    variances: params.variances ?? [],
+    scenarios: params.priorScenarios ?? null,
+  });
+
   return {
     accuracy: accuracyByHorizon({ ledger: params.ledger, actuals: params.actuals }),
     explanation: explanationRatio(params.attributions),
@@ -139,6 +256,8 @@ export function financeKpis(params: {
       actuals: params.actuals,
       revised: params.revised,
     }),
+    surprises,
+    surpriseTally: tallySurprises(surprises),
   };
 }
 
@@ -148,14 +267,12 @@ export function financeKpis(params: {
  * **Proportion of recommendations acted on** needs a record of what the user
  * decided, and §4.3's "user decision" stage does not exist yet. Counting
  * recommendations issued and calling it adoption would measure this division's
- * output rather than its usefulness.
+ * output rather than its usefulness -- and there is no authoritative input for
+ * the difference.
  *
- * **Material surprises not flagged in advance** needs cross-run history: it
- * asks whether an earlier vintage should have seen this coming, which cannot be
- * answered inside a single process. It becomes computable once memory is
- * durable (gap `A3`, Phase 10).
+ * Four of §4.2's five KPIs now compute. This is the fifth and it stays absent
+ * until a real decision is recorded somewhere.
  */
 export const UNIMPLEMENTED_KPIS = [
   'proportion of recommendations acted on — needs the user-decision stage',
-  'material surprises not flagged — needs durable cross-run history (A3, Phase 10)',
 ] as const;

@@ -24,7 +24,7 @@
 import { type MemoryScope, type Result, err, nexusError, ok } from '@nexus/core';
 import type { ScopedVersionedMemory } from '@nexus/core';
 import { createForecastLedger, type ForecastLedger } from './ledger.ts';
-import type { ForecastVintage } from './types.ts';
+import type { ForecastVintage, ScenarioSet } from './types.ts';
 
 /** Finance's own division scope (§12.1, "Owning division"). */
 export const FINANCE_MEMORY_SCOPE: MemoryScope = { kind: 'division', id: 'finance' };
@@ -36,6 +36,90 @@ export const FINANCE_MEMORY_SCOPE: MemoryScope = { kind: 'division', id: 'financ
  * key would interleave their vintages and make every `asOf` answer wrong.
  */
 export const forecastKey = (ledgerName: string): string => `forecast:${ledgerName}`;
+
+/**
+ * Scenario sets live on their own chain, beside the forecast's.
+ *
+ * Not on the vintage's chain: a vintage can exist without scenarios (the
+ * lifecycle stops before stage 5 when nothing material happened), and
+ * interleaving them would make the forecast's version numbers count things
+ * that are not forecasts.
+ */
+export const scenarioKey = (ledgerName: string): string => `scenarios:${ledgerName}`;
+
+/**
+ * Persists the scenario set this run produced.
+ *
+ * `validFrom` is the set's own `createdAt` -- when the division actually said
+ * these were the paths it saw. That timestamp is the whole point: a later
+ * lookup asks what was on record *at a moment*, and a set stamped with the
+ * lookup time instead would let the division flag, in hindsight, an outcome it
+ * never anticipated.
+ */
+export async function rememberScenarios(params: {
+  readonly memory: ScopedVersionedMemory;
+  readonly ledgerName: string;
+  readonly scenarios: ScenarioSet;
+}): Promise<Result<void>> {
+  const written = await params.memory.remember({
+    scope: FINANCE_MEMORY_SCOPE,
+    kind: 'artifact',
+    content:
+      `${params.scenarios.paths.length} weighted path(s) on vintage ` +
+      `${params.scenarios.basedOnVintage}`,
+    key: scenarioKey(params.ledgerName),
+    reason: `scenarios for vintage ${params.scenarios.basedOnVintage}`,
+    tags: ['finance:scenarios', `vintage:${params.scenarios.basedOnVintage}`],
+    validFrom: params.scenarios.createdAt,
+    metadata: { scenarios: params.scenarios },
+  });
+  if (!written.ok) return written;
+  return ok(undefined);
+}
+
+/**
+ * The scenario set that was on record at a point in time.
+ *
+ * Returns null when none was -- which the caller must treat as "not measured"
+ * rather than as "nothing was flagged". The two are different findings and
+ * collapsing them would turn an absent record into an accusation.
+ */
+export async function scenariosAsOf(params: {
+  readonly memory: ScopedVersionedMemory;
+  readonly ledgerName: string;
+  readonly at: string;
+}): Promise<Result<ScenarioSet | null>> {
+  const found = await params.memory.asOf(
+    FINANCE_MEMORY_SCOPE,
+    scenarioKey(params.ledgerName),
+    params.at,
+  );
+  if (!found.ok) return found;
+  if (found.value === null) return ok(null);
+
+  const stored = found.value.metadata?.['scenarios'];
+  if (!isScenarioSet(stored)) {
+    // Refused rather than skipped: a scenario set that will not parse must not
+    // silently become "no scenarios", which reads as "nothing was flagged".
+    return err(
+      nexusError('INTERNAL', `stored scenario set '${found.value.id}' is unreadable`, {
+        details: { recordId: found.value.id, ledger: params.ledgerName },
+      }),
+    );
+  }
+  return ok(stored);
+}
+
+function isScenarioSet(value: unknown): value is ScenarioSet {
+  if (typeof value !== 'object' || value === null) return false;
+  const s = value as Partial<ScenarioSet>;
+  return (
+    typeof s.basedOnVintage === 'string' &&
+    typeof s.createdAt === 'string' &&
+    Array.isArray(s.paths) &&
+    Array.isArray(s.expected)
+  );
+}
 
 /** Persists one vintage as the next version of the forecast. */
 export async function rememberVintage(params: {

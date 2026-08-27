@@ -175,6 +175,37 @@ export interface ScenarioSet {
 }
 
 /**
+ * Whether a material variance was anticipated (§4.2, fifth KPI).
+ *
+ * Three outcomes, and the third is the one that must never be collapsed into
+ * the second: an absent record is not an accusation. "We had no scenarios on
+ * file for that period" and "we had scenarios and none of them saw this
+ * coming" are different findings about the division, and reporting the first
+ * as the second would manufacture a failure out of a gap in the archive.
+ */
+export type SurpriseStatus =
+  /** A scenario path on record covered the actual. */
+  | 'flagged'
+  /** Scenarios were on record and none covered it. A real surprise. */
+  | 'unflagged'
+  /** No scenario set was in force then. Not measurable, not a failure. */
+  | 'unmeasured';
+
+export interface SurpriseAssessment {
+  readonly lineItem: LineItemId;
+  readonly period: PeriodId;
+  readonly actual: number;
+  readonly status: SurpriseStatus;
+  /** The scenario set consulted, and when it was put on record. */
+  readonly scenarioSet?: string;
+  readonly scenariosDatedFrom?: string;
+  /** The path that covered it, when one did. */
+  readonly coveredBy?: string;
+  /** The span the paths spanned, so a near miss is visible as a near miss. */
+  readonly range?: { readonly low: number; readonly high: number };
+}
+
+/**
  * A CFO recommendation.
  *
  * It carries a `Claim` rather than prose because §6.1 already settled how an

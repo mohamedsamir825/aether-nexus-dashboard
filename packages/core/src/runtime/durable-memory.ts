@@ -98,7 +98,24 @@ export function createDurableMemoryStore(
   const deleted = new Set<string>();
   let corruptLines = 0;
 
-  const index = (record: VersionedRecord) => {
+  /**
+   * Deep-freezes a record before it is indexed.
+   *
+   * The log is append-only, so what is *persisted* is already immutable. This
+   * closes the in-process half: without it a reader could mutate the object and
+   * every other reader in the process would see the change, while the next
+   * restart would silently disagree with all of them. `ForecastLedger` freezes
+   * for the same reason -- `readonly` is erased at runtime.
+   */
+  const freeze = (record: VersionedRecord): VersionedRecord => {
+    Object.freeze(record.tags);
+    if (record.metadata !== undefined) Object.freeze(record.metadata);
+    Object.freeze(record.scope);
+    return Object.freeze(record);
+  };
+
+  const index = (raw: VersionedRecord) => {
+    const record = freeze(raw);
     byId.set(record.id, record);
     const chainKey = keyOf(record.scope, record.key);
     const chain = chains.get(chainKey);

@@ -39,10 +39,21 @@ import { createForecastLedger, type ForecastLedger } from './ledger.ts';
 import { runLifecycle } from './lifecycle.ts';
 import { financeKpis } from './kpi.ts';
 import { sourceMarketInputs } from './market.ts';
-import { FINANCE_MEMORY_SCOPE, rememberVintage, restoreLedger } from './persistence.ts';
+import {
+  FINANCE_MEMORY_SCOPE,
+  rememberScenarios,
+  rememberVintage,
+  restoreLedger,
+  scenariosAsOf,
+} from './persistence.ts';
 import type { ScenarioSpec } from './forecast.ts';
 import { FINANCE_ACTUALS_TOOL_ID, type ActualsOutput } from './tool.ts';
-import type { FinanceRequest, FinanceResult, ForecastVintage } from './types.ts';
+import type {
+  FinanceRequest,
+  FinanceResult,
+  ForecastVintage,
+  ScenarioSet,
+} from './types.ts';
 
 export const FINANCE_DIVISION_ID = divisionId('finance');
 
@@ -242,6 +253,24 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
         }
       }
 
+      // Fetched BEFORE the lifecycle runs, as of when the actuals were
+      // validated. Doing it after would hand the KPI this run's own scenarios
+      // -- computed from these very actuals -- and the division would appear
+      // to have anticipated everything it had just been told.
+      let priorScenarios: ScenarioSet | null = null;
+      if (options.versionedMemory !== undefined) {
+        const recalled = await scenariosAsOf({
+          memory: options.versionedMemory,
+          ledgerName,
+          at: actuals.validatedAt,
+        });
+        // An unreadable record fails the run. Treating it as "no scenarios"
+        // would report every material variance as unmeasured, which reads as
+        // a clean record rather than as a broken archive.
+        if (!recalled.ok) return recalled;
+        priorScenarios = recalled.value;
+      }
+
       const outcome = runLifecycle({
         actuals,
         actualsEvidence: actualsEvidence.map((e) => e.id),
@@ -271,6 +300,17 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
         persisted = true;
       }
 
+      // Persisted after the KPI has already used the PRIOR set, so this run's
+      // scenarios can never grade this run's actuals.
+      if (outcome.value.scenarios !== null && options.versionedMemory !== undefined) {
+        const stored = await rememberScenarios({
+          memory: options.versionedMemory,
+          ledgerName,
+          scenarios: outcome.value.scenarios,
+        });
+        if (!stored.ok) return stored;
+      }
+
       const partial = {
         request,
         variances: outcome.value.variances,
@@ -284,6 +324,8 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
           actuals,
           attributions: outcome.value.attributions,
           revised: outcome.value.revised,
+          variances: outcome.value.variances,
+          priorScenarios,
         }),
         unsourcedMarketDrivers: market.unsourced,
         persisted,

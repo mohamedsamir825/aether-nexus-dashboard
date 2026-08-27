@@ -43,3 +43,7 @@ Thumbs.db
 *.log
 npm-debug.log*
 bun-debug.log*
+
+# NEXUS runtime data. Durable memory is the owner's own record: it holds
+# whatever the system has learned, and belongs on their disk, not in the repo.
+.nexus/
