@@ -14,6 +14,7 @@ import {
   allowListPolicy,
   agentId,
   createNexusSystem,
+  installDivision,
   divisionId,
   fixedClock,
   loadConfig,
@@ -63,11 +64,16 @@ function build(
   });
 
   // The division installs itself through the narrow installer surface.
-  const installed = division.install({
+  // Through the verifying installer: the descriptor's roster, entry points and
+  // declared capabilities are checked against what actually registered, so a
+  // division that misdescribes itself fails here rather than at a delegation
+  // months later.
+  const installed = installDivision({
+    division,
     registerAgent: (agent) => system.registries.agents.register(agent),
     registerTool: (tool) => system.registries.tools.register(tool),
   });
-  expect(installed.ok).toBe(true);
+  expect(installed.ok, installed.ok ? '' : installed.error.message).toBe(true);
 
   const events: NexusEvent[] = [];
   system.events.subscribe('*', (e) => void events.push(e));

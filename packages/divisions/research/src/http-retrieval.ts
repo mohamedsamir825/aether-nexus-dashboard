@@ -205,10 +205,12 @@ export function createHttpRetriever(options: HttpRetrieverOptions): SourceRetrie
       if (redirectsLeft <= 0) {
         return err(nexusError('UNSUPPORTED', 'too many redirects'));
       }
-      // Resolved against the current URL, then re-checked from scratch.
+      // Resolved against the URL that was actually FETCHED, which differs from
+      // `url` whenever a reader service is in play -- resolving a relative
+      // Location against the origin URL would silently aim at the wrong host.
       let next: string;
       try {
-        next = new URL(location, url).toString();
+        next = new URL(location, target(url)).toString();
       } catch {
         return err(nexusError('PROVIDER_UNAVAILABLE', 'redirect location is malformed'));
       }
@@ -257,12 +259,16 @@ export function createHttpRetriever(options: HttpRetrieverOptions): SourceRetrie
       // that arrived, so a later re-fetch compares like with like.
       const text = new TextDecoder('utf-8').decode(fetched.value.bytes);
 
+      const finalLocator = fetched.value.finalUrl.toString();
       const content: RetrievedContent = {
         source: ref,
         text,
         retrievedAt: now().toISOString(),
         contentHash: contentHashBytes(fetched.value.bytes),
         ...(options.readerService !== undefined ? { via: options.readerService } : {}),
+        // Only when a redirect actually moved it. Recording it unconditionally
+        // would add noise to every result to describe the common case.
+        ...(finalLocator !== checked.value.toString() ? { finalLocator } : {}),
       };
       return ok(content);
     },

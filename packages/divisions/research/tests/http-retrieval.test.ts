@@ -101,6 +101,49 @@ describe('the URL guard governs retrieval, not just parsing', () => {
     if (!got.ok) expect(got.error.code).toBe('PERMISSION_DENIED');
   });
 
+  test('a redirect records where the content actually came from', async () => {
+    // Without this the evidence cites a URL that served no bytes, and a later
+    // re-fetch checking contentHash for drift compares the wrong document.
+    let call = 0;
+    const redirecting = (async () => {
+      call += 1;
+      return call === 1
+        ? new Response(null, { status: 302, headers: { location: 'https://cdn.example.com/seals' } })
+        : new Response(new TextEncoder().encode('moved content'), { status: 200 });
+    }) as FetchLike;
+
+    const got = await retriever({ fetch: redirecting }).retrieve(SOURCE);
+    expect(got.ok).toBe(true);
+    if (!got.ok) return;
+    expect(got.value.finalLocator).toBe('https://cdn.example.com/seals');
+    // The original locator is still what was asked for.
+    expect(got.value.source.locator).toBe('https://example.com/seals');
+  });
+
+  test('no redirect means no finalLocator — the common case stays quiet', async () => {
+    const got = await retriever({ fetch: stubFetch('body') }).retrieve(SOURCE);
+    expect(got.ok && got.value.finalLocator).toBeUndefined();
+  });
+
+  test('a relative redirect resolves against the URL actually fetched', async () => {
+    // With a reader service the fetched URL is not the origin URL, and
+    // resolving a relative Location against the origin would aim at the
+    // wrong host entirely.
+    const seen: string[] = [];
+    const viaReader = (async (url: string) => {
+      seen.push(url);
+      return seen.length === 1
+        ? new Response(null, { status: 302, headers: { location: '/elsewhere' } })
+        : new Response(new TextEncoder().encode('ok'), { status: 200 });
+    }) as FetchLike;
+
+    await retriever({ fetch: viaReader, readerService: 'https://reader.example/{url}' }).retrieve(
+      SOURCE,
+    );
+    expect(seen[0]).toBe('https://reader.example/https://example.com/seals');
+    expect(seen[1]).toContain('reader.example/elsewhere');
+  });
+
   test('a redirect loop is bounded', async () => {
     const fetchStub = (async () =>
       new Response(null, {

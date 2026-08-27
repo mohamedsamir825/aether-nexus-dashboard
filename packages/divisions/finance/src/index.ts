@@ -1,6 +1,7 @@
 export * from './types.ts';
 export * from './ledger.ts';
 export * from './variance.ts';
+export * from './kpi.ts';
 export * from './forecast.ts';
 export * from './recommend.ts';
 export * from './lifecycle.ts';

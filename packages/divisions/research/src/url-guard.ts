@@ -130,10 +130,22 @@ export function isPrivateIpv6(host: string): boolean {
   if (address === '::1' || address === '::') return true;
 
   // IPv4-mapped and IPv4-compatible forms smuggle an IPv4 address inside IPv6.
-  const mapped = /^::(ffff:)?(\d+\.\d+\.\d+\.\d+)$/.exec(address);
-  if (mapped) {
-    const octets = parseIpv4(mapped[2] as string);
+  //
+  // Both spellings have to be handled, and the second is the one that actually
+  // occurs: `URL` normalises `::ffff:8.8.8.8` to `::ffff:808:808`, so a check
+  // that only understands the dotted form never sees a real one and silently
+  // falls through to the range test below.
+  const dotted = /^::(ffff:)?(\d+\.\d+\.\d+\.\d+)$/.exec(address);
+  if (dotted) {
+    const octets = parseIpv4(dotted[2] as string);
     return octets === null || isPrivateIpv4(octets);
+  }
+
+  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(address);
+  if (hex) {
+    const high = Number.parseInt(hex[1] as string, 16);
+    const low = Number.parseInt(hex[2] as string, 16);
+    return isPrivateIpv4([high >> 8, high & 0xff, low >> 8, low & 0xff]);
   }
 
   const firstGroup = address.split(':')[0] ?? '';

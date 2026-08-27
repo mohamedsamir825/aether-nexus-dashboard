@@ -40,8 +40,6 @@ export interface UpdateForecastParams {
  * so is cheaper than discovering it later.
  */
 export function updateForecast(params: UpdateForecastParams): Result<ForecastVintage> {
-  const baselineDrivers = new Map(params.baseline.drivers.map((d) => [d.id, d]));
-
   const movements: { id: string; from: number; to: number }[] = [];
   const drivers: Driver[] = params.baseline.drivers.map((driver) => {
     const observed = params.observed.find((o) => o.id === driver.id);
@@ -91,7 +89,6 @@ export function updateForecast(params: UpdateForecastParams): Result<ForecastVin
 
   // The ledger is the authority on whether this may be appended. Bypassing it
   // to "just store the vintage" is how an audit chain quietly stops being one.
-  void baselineDrivers;
   return params.ledger.append(candidate);
 }
 

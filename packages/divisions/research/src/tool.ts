@@ -133,7 +133,10 @@ export function createRetrieveTool(
             ` and contains text relevant to: ${input.query}`,
           source: {
             kind: 'document',
-            uri: ref.locator,
+            // Where the bytes actually came from. A redirect makes these
+            // differ, and citing the URL that served nothing would make the
+            // provenance point at the wrong document.
+            uri: retrieved.value.finalLocator ?? ref.locator,
             title: ref.title,
             ...(ref.publisher !== undefined ? { publisher: ref.publisher } : {}),
             ...(ref.publishedAt !== undefined ? { publishedAt: ref.publishedAt } : {}),

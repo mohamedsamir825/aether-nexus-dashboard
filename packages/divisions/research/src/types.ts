@@ -41,6 +41,16 @@ export interface RetrievedContent {
    * came from the origin directly.
    */
   readonly via?: string;
+  /**
+   * Where the content actually came from, when a redirect moved it.
+   *
+   * Present means `source.locator` is where the fetch STARTED and this is
+   * where it ended. Recording it matters because a redirect silently changes
+   * what the evidence is about: without it, a claim would cite a URL that
+   * served no bytes, and a later re-fetch checking `contentHash` for drift
+   * would be comparing against the wrong document.
+   */
+  readonly finalLocator?: string;
 }
 
 export interface ResearchRequest {

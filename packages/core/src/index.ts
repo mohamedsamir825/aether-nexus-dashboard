@@ -36,6 +36,7 @@ export * from './runtime/model-router.ts';
 export * from './runtime/limits.ts';
 export * from './runtime/task-classes.ts';
 export * from './runtime/claim-validator.ts';
+export * from './runtime/install-division.ts';
 export * from './runtime/health.ts';
 export * from './runtime/execution.ts';
 export * from './runtime/budget.ts';

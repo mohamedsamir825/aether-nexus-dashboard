@@ -35,6 +35,7 @@ import {
 } from '@nexus/core';
 import { createForecastLedger, type ForecastLedger } from './ledger.ts';
 import { runLifecycle } from './lifecycle.ts';
+import { financeKpis } from './kpi.ts';
 import type { ScenarioSpec } from './forecast.ts';
 import { FINANCE_ACTUALS_TOOL_ID, type ActualsOutput } from './tool.ts';
 import type { FinanceRequest, FinanceResult, ForecastVintage } from './types.ts';
@@ -192,6 +193,12 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
         scenarios: outcome.value.scenarios,
         recommendations: outcome.value.recommendations,
         vintages: ledger.all(),
+        kpis: financeKpis({
+          ledger,
+          actuals,
+          attributions: outcome.value.attributions,
+          revised: outcome.value.revised,
+        }),
       };
 
       const result: FinanceResult = { ...partial, narrative: narrate(partial) };

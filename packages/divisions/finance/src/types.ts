@@ -13,6 +13,7 @@
  * material would be a model deciding what the owner gets told about.
  */
 import type { AgentId, Claim, EvidenceId, RunId } from '@nexus/core';
+import type { FinanceKpis } from './kpi.ts';
 
 /**
  * An accounting period, as an ordered label.
@@ -184,5 +185,7 @@ export interface FinanceResult {
   readonly recommendations: readonly Recommendation[];
   /** Every vintage in the chain, oldest first. History is never discarded. */
   readonly vintages: readonly ForecastVintage[];
+  /** §4.2, measured rather than asserted. See `kpi.ts` for what is absent. */
+  readonly kpis: FinanceKpis;
   readonly narrative: string;
 }
