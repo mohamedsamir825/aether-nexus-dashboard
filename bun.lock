@@ -41,6 +41,17 @@
       "name": "@nexus/design-tokens",
       "version": "0.0.1",
     },
+    "packages/divisions/business": {
+      "name": "@nexus/division-business",
+      "version": "0.0.1",
+      "dependencies": {
+        "@nexus/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@nexus/division-finance": "workspace:*",
+        "@nexus/division-research": "workspace:*",
+      },
+    },
     "packages/divisions/finance": {
       "name": "@nexus/division-finance",
       "version": "0.0.1",
@@ -56,6 +67,16 @@
       "version": "0.0.1",
       "dependencies": {
         "@nexus/core": "workspace:*",
+      },
+    },
+    "packages/nexus": {
+      "name": "@nexus/nexus",
+      "version": "0.0.1",
+      "dependencies": {
+        "@nexus/core": "workspace:*",
+        "@nexus/division-business": "workspace:*",
+        "@nexus/division-finance": "workspace:*",
+        "@nexus/division-research": "workspace:*",
       },
     },
     "packages/providers/google": {
@@ -187,9 +208,13 @@
 
     "@nexus/design-tokens": ["@nexus/design-tokens@workspace:packages/design-tokens"],
 
+    "@nexus/division-business": ["@nexus/division-business@workspace:packages/divisions/business"],
+
     "@nexus/division-finance": ["@nexus/division-finance@workspace:packages/divisions/finance"],
 
     "@nexus/division-research": ["@nexus/division-research@workspace:packages/divisions/research"],
+
+    "@nexus/nexus": ["@nexus/nexus@workspace:packages/nexus"],
 
     "@nexus/provider-google": ["@nexus/provider-google@workspace:packages/providers/google"],
 

@@ -1,0 +1,23 @@
+{
+  "name": "@nexus/division-business",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Business & Strategy Division. Option sets with explicit trade-offs. Zero dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nexus/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@nexus/division-research": "workspace:*",
+    "@nexus/division-finance": "workspace:*"
+  }
+}
