@@ -14,7 +14,8 @@ comes next and what is intentionally deferred.
 packages/core/       The Core: contracts, registries, runtime primitives. Zero dependencies.
 packages/providers/  Model provider adapters (OpenAI-compatible, Google Gemini).
 packages/tools/      Tools agents can invoke (arithmetic).
-packages/divisions/  Divisions (research). See docs/RESEARCH_DIVISION.md.
+packages/divisions/  Research, Finance, Business. One doc each under docs/.
+packages/nexus/      The composition root: registration and policy. `bun run nexus`.
 apps/dashboard/      A vendored third-party dashboard template. NOT wired to Core.
 docs/                Architecture, decision records, roadmap, design references.
 ```
@@ -23,9 +24,11 @@ docs/                Architecture, decision records, roadmap, design references.
 
 ```bash
 bun install
-bun test packages # 368 tests, no network, no credentials, zero API cost
+bun test packages # 767 tests, no network, no credentials, zero API cost
+bun run typecheck # `bun test` does not typecheck; both are required
 bun run health    # honest system status; exits non-zero while unavailable
 bun run demo      # one task across every layer, end to end
+bun run nexus     # all three divisions as one system, over durable memory
 ```
 
 `bun run health` reports `unavailable` until a provider adapter is registered with

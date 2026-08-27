@@ -7,7 +7,7 @@ specification behind it, live in
 [`NEXUS_MASTER_SPEC.md`](NEXUS_MASTER_SPEC.md) — see its §25 (phases), §27 (gap
 analysis) and §28 (decisions pending).
 
-## Done — Phases 1-4
+## Done — Phases 1-7 and 10
 
 **Phase 1 — Foundation.** Contracts, registries, runtime primitives, tests.
 
@@ -32,7 +32,27 @@ this and permits the static subset first.
 pipeline, contradictions recorded rather than merged, and retrieved content
 treated as data. See [`RESEARCH_DIVISION.md`](RESEARCH_DIVISION.md).
 
-**368 tests. Zero dependencies in the Core. No existing contract ever edited.**
+**Phase 7 — Business & Strategy.** Option sets with explicit trade-offs and no
+recommendation — §5 gives the strategic call to the user, so there is nowhere in
+the type to put one. Market facts arrive by delegation to Research and prices by
+delegation to Finance, both by name, with no import between the packages. See
+[`BUSINESS_DIVISION.md`](BUSINESS_DIVISION.md).
+
+**Phase 10 — Memory.** Durable, append-only, versioned with validity intervals
+and supersession chains, scope-isolated under adversarial ids. Forecast vintages
+and scenario sets now outlive the process, Research contradicts across runs, and
+Business remembers the framings it presented. Retrieval is BM25 and is called
+lexical rather than semantic, because it is (ADR 0017).
+
+**The composition root.** `packages/nexus` assembles Core, memory and all three
+divisions under one policy, and `bun run nexus` runs the whole chain on
+fixtures. Before it, no code outside a test ever installed a division: three
+harnesses meant the suite proved each division worked under *a* configuration
+rather than under *the* one a deployment runs.
+
+**767 tests. Zero dependencies in the Core. Two Core contract edits, each
+carrying an ADR** — `VerificationResult.confidence` (0014) and
+`ExecutionBudget.maxAgentRuns` (0019).
 
 ## Detail — the foundation
 
@@ -55,18 +75,22 @@ API tiers only**, served by two adapters (`openai-compatible` covering five
 providers, plus Gemini's native protocol); and a fixed Command Center reference
 hierarchy. See [`adr/`](adr/) and [`design/`](design/).
 
-## Next
+## In progress — Phase 9, Cross-Agent Intelligence
 
-The slice is proven. The Core has been exercised end to end and the provider
-abstraction survived a second protocol, so breadth is now a reasonable risk.
+The chain exists; its properties are what is being made checkable.
+
+**Landed:** run lineage in the Supervisor's own event payloads, so
+`buildRunTree()` reconstructs who called whom from the trail alone (ADR 0018);
+cycles refused by name at the first re-entry rather than eight hops later;
+`maxAgentRuns`, because depth never bounded breadth (ADR 0019).
+
+**Still open in Phase 9:** the §18.1 canonical chain includes Risk, which does
+not exist; and the trace is reconstructed in memory from a live subscription
+rather than from the durable log.
 
 **Immediately useful:** add a free API key to `.env`, register the matching
 adapter, and `bun run demo` performs a real model call. Nothing in the Core
 changes to make that happen — that is the whole point.
-
-**Phase 5 (Research) foundation is done.** Next is either a real provider key to
-make synthesis model-written, or Phase 10 (durable memory), which unblocks
-cross-run contradiction and the full FP&A loop in Finance.
 
 ## Historical — the original slice ordering
 
@@ -96,8 +120,8 @@ Each has a defined seam in the Core, so each is additive rather than blocked.
 
 | Deferred | Seam it will attach to | Why not yet |
 | --- | --- | --- |
-| Finance, Research, Business, Learning, Performance, Engineering, Legal divisions | `AgentRegistry`, division packages | Nothing is proven until one agent works end to end |
-| Any agent or skill | `Agent` / `Skill` contracts | Needs a real tool and a real provider first |
+| Learning, Performance, Engineering, Legal, Risk divisions | `AgentRegistry`, division packages | Research, Finance and Business are built; the rest wait on Phases 11-12 |
+| Semantic retrieval | `EmbeddingProvider` (declared, unimplemented) | Every implementation costs a dependency or a model call; BM25 is honest in the meantime |
 | Provider adapters | `ModelProvider` | Requires a credential and a deliberate first choice |
 | Background jobs, schedulers, autonomous workflows | A layer above `Supervisor` (ADR 0007) | The Supervisor is deliberately not a planner |
 | Realtime voice | `Tool` + streaming on `ModelProvider` | Depends on a provider adapter existing |
@@ -108,12 +132,17 @@ Each has a defined seam in the Core, so each is additive rather than blocked.
 
 ## Decisions still open
 
-- **Persistence backend** for memory — deferred to step 5.
-- **Schema validation library** — deferred to step 1.
+- ~~**Persistence backend** for memory.~~ Decided (ADR 0017): append-only JSON
+  lines over a local file, zero dependencies.
+- ~~**Schema validation library.**~~ Decided: a zero-dependency `SchemaValidator`
+  that refuses assertions it cannot enforce rather than ignoring them.
+- ~~**Budget enforcement.**~~ Enforced across a run tree on four dimensions:
+  time, model calls, tool calls and agent runs.
+- **Lineage on `NexusEvent`.** Deferred by ADR 0018: run lineage lives in the
+  Supervisor's payloads today. Revisit when a second independent publisher needs
+  it — a background worker, or an Orchestrator emitting its own step events.
 - **Capability taxonomy.** Capability strings are plain strings. A taxonomy is
   needed before roughly five divisions exist; see the risk table in
   `ARCHITECTURE.md`.
-- **Budget enforcement.** `ExecutionBudget` is defined and inherited by child
-  runs, but nothing enforces it yet. Needed before autonomous execution.
 - ~~**Repository name.**~~ Decided: `mohamedsamir825/NEXUS` (private) is the
   canonical repository, migrated with full history.
