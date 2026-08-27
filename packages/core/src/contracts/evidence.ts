@@ -53,6 +53,14 @@ export interface VerificationResult {
   readonly supporting: readonly EvidenceId[];
   readonly conflicting: readonly EvidenceId[];
   readonly rationale: string;
+  /**
+   * 0..1 -- how strongly the weighed evidence settles the claim (spec §19.1).
+   *
+   * Distinct from `Claim.confidence`, which is how confident the assertion
+   * itself is. A verifier may only lower that, never raise it: verification
+   * cannot be more certain than the thing it verifies.
+   */
+  readonly confidence: number;
   readonly checkedAt: string;
 }
 

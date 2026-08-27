@@ -54,6 +54,13 @@ Two independent axes (ADR 0013). A claim can be an inference *and* verified.
 | `insufficient` | Weighed and found wanting |
 | `unverified` | Nothing weighed yet |
 
+Every verification also carries a **confidence** (§19.1, ADR 0014), derived from
+the evidence and capped by the claim: verification can lower confidence in an
+assertion, never raise it above what the assertion itself claimed. A conflict
+scales that number down rather than netting against the support, and
+`insufficient`/`unverified` are exactly `0` — nothing was weighed, so nothing is
+settled.
+
 **Recommendations are never invented.** A recommendation is a judgement about
 what someone should do, and no deterministic rule over sentences produces one
 honestly. The type is supported and validated; this pipeline does not emit it.

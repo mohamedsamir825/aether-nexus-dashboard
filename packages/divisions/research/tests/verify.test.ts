@@ -1,11 +1,20 @@
 import { test, expect, describe } from 'bun:test';
-import { claimId, evidenceId, runId, type Claim } from '@nexus/core';
+import { claimId, evidenceId, runId, type Claim, type Evidence } from '@nexus/core';
 import { createClaimVerifier } from '../src/verify.ts';
 import { detectContradictions, hasNegation, markContradicted, numbersIn } from '../src/contradictions.ts';
 import { fixedNow } from './fixtures.ts';
 
 const RUN = runId('run_test');
-const verifier = createClaimVerifier({ now: fixedNow });
+
+const piece = (id: string, confidence: number): Evidence => ({
+  id: evidenceId(id),
+  claim: 'seals',
+  source: { kind: 'document', retrievedAt: '2026-06-01T12:00:00.000Z' },
+  confidence,
+});
+
+const CORPUS: readonly Evidence[] = [piece('ev_1', 1), piece('ev_2', 1)];
+const verifier = createClaimVerifier({ now: fixedNow, evidence: CORPUS });
 
 const claim = (over: Partial<Claim> = {}): Claim => ({
   id: claimId('cl_1'),
@@ -62,6 +71,62 @@ describe('verification — the four states', () => {
     for (const c of [claim(), claim({ supportedBy: [] })]) {
       expect(verifier.verifyClaim(c).rationale.length).toBeGreaterThan(0);
     }
+  });
+
+  test('confidence is derived from the evidence, capped by the claim', () => {
+    // A claim asserted at 0.9 cannot be verified to 1.0 just because its
+    // evidence is certain -- verification never outranks what it verifies.
+    const result = verifier.verifyClaim(claim({ confidence: 0.9 }));
+    expect(result.status).toBe('verified');
+    expect(result.confidence).toBeCloseTo(0.9, 10);
+
+    // ...and weaker evidence pulls it below the claim's own number.
+    const weak = createClaimVerifier({ now: fixedNow, evidence: [piece('ev_1', 0.4)] });
+    expect(weak.verifyClaim(claim({ confidence: 0.9 })).confidence).toBeCloseTo(0.4, 10);
+  });
+
+  test('a contradiction is never more confident than a clean verification', () => {
+    // §19.2: conflict is represented, not netted out into a comfortable middle.
+    const clean = verifier.verifyClaim(claim());
+    const conflicted = verifier.verifyClaim(claim({ contradictedBy: [evidenceId('ev_2')] }));
+    expect(conflicted.status).toBe('contradicted');
+    expect(conflicted.confidence).toBeLessThan(clean.confidence);
+  });
+
+  test('nothing weighed is exactly zero, not a small comforting number', () => {
+    expect(verifier.verifyClaim(claim({ supportedBy: [] })).confidence).toBe(0);
+    expect(
+      verifier.verifyClaim(
+        claim({ status: 'uncertain', supportedBy: [], uncertaintyReason: 'nothing found', confidence: 0 }),
+      ).confidence,
+    ).toBe(0);
+  });
+
+  test('evidence it cannot see is not silently scored', () => {
+    // An unresolvable id means the caller handed over an incomplete evidence
+    // set. That is a defect, so the result says so instead of just deflating.
+    const blind = createClaimVerifier({ now: fixedNow, evidence: [] });
+    const result = blind.verifyClaim(claim());
+    expect(result.confidence).toBe(0);
+    expect(result.rationale).toContain('not available to weigh');
+  });
+
+  test('every verification carries a confidence in range', () => {
+    const cases = [
+      claim(),
+      claim({ contradictedBy: [evidenceId('ev_2')] }),
+      claim({ status: 'uncertain', supportedBy: [], uncertaintyReason: 'x', confidence: 0 }),
+      claim({ supportedBy: [] }),
+    ];
+    const seen = new Set<string>();
+    for (const c of cases) {
+      const result = verifier.verifyClaim(c);
+      seen.add(result.status);
+      expect(result.confidence).toBeGreaterThanOrEqual(0);
+      expect(result.confidence).toBeLessThanOrEqual(1);
+    }
+    // All four states are actually exercised above, not just three of them.
+    expect(seen).toEqual(new Set(['verified', 'contradicted', 'insufficient', 'unverified']));
   });
 
   test('the Core Verifier shape works over loose evidence', async () => {

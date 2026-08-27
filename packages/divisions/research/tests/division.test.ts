@@ -151,6 +151,29 @@ describe('the vertical slice', () => {
     expect(source).toBeDefined();
   });
 
+  test('verification confidence is really derived, not defaulted', async () => {
+    // The pipeline has to assemble the evidence BEFORE it verifies, or the
+    // verifier resolves nothing and every score silently collapses to zero.
+    // Without this test that reordering would break nothing visible.
+    const built = build(agreeingCorpus);
+    const result = await ask(built, 'harbour seal population', ['harbour seal population']);
+    if (!result.ok) throw new Error('expected success');
+    const research = result.value.output as ResearchResult;
+
+    const verified = research.verifications.filter((v) => v.status === 'verified');
+    expect(verified.length).toBeGreaterThan(0);
+    for (const v of verified) {
+      expect(v.confidence).toBeGreaterThan(0);
+      expect(v.rationale).not.toContain('not available to weigh');
+    }
+
+    // And it never exceeds the claim it verifies (ADR 0014).
+    for (const v of research.verifications) {
+      const claim = research.claims.find((c) => c.statement === v.claim);
+      expect(v.confidence).toBeLessThanOrEqual(claim?.confidence ?? 0);
+    }
+  });
+
   test('a subject with no source becomes uncertain, and the run still succeeds', async () => {
     const built = build(agreeingCorpus);
     const result = await ask(built, 'harbour seal population', [

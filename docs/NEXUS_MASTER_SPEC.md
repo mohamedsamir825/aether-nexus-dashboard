@@ -1159,9 +1159,10 @@ explicitly. Deny-by-default still holds — omitting the grant blocks the path.
 | A9 | `Orchestrator` contract | Multi-step work | 4 |
 | A10 | `BackgroundJob` + `Scheduler` contracts | Background intelligence | 12 |
 | A11 | `Notification` contract | Alerts | 12 |
-| A12 | `SchemaValidator` implementation (seam exists, unimplemented) | Every tool | 3 |
+| A12 | ~~`SchemaValidator` implementation~~ ✅ done (§25 Phase 3 exit) | Every tool | — |
 | A13 | `ComputeWorker` contract for Python | Quantitative finance | 6+ |
 | A14 | Persisted conflict representation ✅ done — `Contradiction` (ADR 0013) | Research | — |
+| A15 | ~~`VerificationResult.confidence`~~ ✅ done (ADR 0014) — §19.1 required it; the contract omitted it | Research | — |
 
 ### 27.5 What the foundation got right
 

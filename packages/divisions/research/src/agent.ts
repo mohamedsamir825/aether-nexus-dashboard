@@ -133,7 +133,14 @@ export function createResearchAnalyst(): AnyAgent {
         if (!valid.ok) return valid;
       }
 
-      const verifier = createClaimVerifier({ now });
+      // Assembled before verification, not after: the verifier is scored
+      // against the evidence, so it has to be handed the evidence.
+      const evidence: readonly Evidence[] = [
+        ...retrievalEvidence,
+        ...extracted.map((e) => e.evidence),
+      ];
+
+      const verifier = createClaimVerifier({ now, evidence });
       const verifications = claims.map((claim) => verifier.verifyClaim(claim));
 
       const synthesis = await synthesize({
@@ -142,11 +149,6 @@ export function createResearchAnalyst(): AnyAgent {
         contradictions,
         models: context.models,
       });
-
-      const evidence: readonly Evidence[] = [
-        ...retrievalEvidence,
-        ...extracted.map((e) => e.evidence),
-      ];
 
       const result: ResearchResult = {
         request,
