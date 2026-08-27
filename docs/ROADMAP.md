@@ -21,6 +21,13 @@ provider conformance suite, contract-stability tripwire.
 budget enforcement; rate-limit and quota aware routing; the first real tool; a
 task crossing every layer (`bun run demo`).
 
+**Phase 6 — Finance Intelligence (static subset).** The FP&A lifecycle with
+immutable forecast vintages, configured materiality, driver attribution that
+keeps its residual, weighted scenarios, and recommendations that carry their
+basis. See [`FINANCE_DIVISION.md`](FINANCE_DIVISION.md). The *continuous* loop
+needs durable memory (Phase 10) and a scheduler (Phase 12); the spec anticipated
+this and permits the static subset first.
+
 **Phase 5 — Research Division.** Typed claims with provenance, a deterministic
 pipeline, contradictions recorded rather than merged, and retrieved content
 treated as data. See [`RESEARCH_DIVISION.md`](RESEARCH_DIVISION.md).

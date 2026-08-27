@@ -23,3 +23,4 @@ silent edit.
 | [0013](0013-claim-and-division-contracts.md) | Claim and Division as Core contracts | Accepted |
 | [0014](0014-verification-confidence.md) | `VerificationResult` carries a confidence (§19.1) | Accepted |
 | [0015](0015-http-source-retriever.md) | A native HTTP `SourceRetriever` | Accepted |
+| [0016](0016-finance-division-and-external-review.md) | Finance Division; what the reference projects contributed | Accepted |

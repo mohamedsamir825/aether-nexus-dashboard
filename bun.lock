@@ -37,6 +37,17 @@
         "@nexus/tool-arithmetic": "workspace:*",
       },
     },
+    "packages/design-tokens": {
+      "name": "@nexus/design-tokens",
+      "version": "0.0.1",
+    },
+    "packages/divisions/finance": {
+      "name": "@nexus/division-finance",
+      "version": "0.0.1",
+      "dependencies": {
+        "@nexus/core": "workspace:*",
+      },
+    },
     "packages/divisions/research": {
       "name": "@nexus/division-research",
       "version": "0.0.1",
@@ -170,6 +181,10 @@
     "@nexus/core": ["@nexus/core@workspace:packages/core"],
 
     "@nexus/dashboard": ["@nexus/dashboard@workspace:apps/dashboard"],
+
+    "@nexus/design-tokens": ["@nexus/design-tokens@workspace:packages/design-tokens"],
+
+    "@nexus/division-finance": ["@nexus/division-finance@workspace:packages/divisions/finance"],
 
     "@nexus/division-research": ["@nexus/division-research@workspace:packages/divisions/research"],
 
