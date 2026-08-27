@@ -21,7 +21,11 @@ provider conformance suite, contract-stability tripwire.
 budget enforcement; rate-limit and quota aware routing; the first real tool; a
 task crossing every layer (`bun run demo`).
 
-**297 tests. Zero dependencies in the Core. Contracts never edited.**
+**Phase 5 — Research Division.** Typed claims with provenance, a deterministic
+pipeline, contradictions recorded rather than merged, and retrieved content
+treated as data. See [`RESEARCH_DIVISION.md`](RESEARCH_DIVISION.md).
+
+**368 tests. Zero dependencies in the Core. No existing contract ever edited.**
 
 ## Detail — the foundation
 
@@ -53,8 +57,9 @@ abstraction survived a second protocol, so breadth is now a reasonable risk.
 adapter, and `bun run demo` performs a real model call. Nothing in the Core
 changes to make that happen — that is the whole point.
 
-**Then Phase 5 (Research),** which brings the `Claim` contract with epistemic
-status and the `Division` contract with it.
+**Phase 5 (Research) foundation is done.** Next is either a real provider key to
+make synthesis model-written, or Phase 10 (durable memory), which unblocks
+cross-run contradiction and the full FP&A loop in Finance.
 
 ## Historical — the original slice ordering
 
