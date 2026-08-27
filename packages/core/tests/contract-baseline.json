@@ -1,6 +1,8 @@
 {
   "contracts": {
     "agent.ts": "443f18c3ead1f86d88a1df82bf400fd6826a47a555680206f663678750d28ca2",
+    "claim.ts": "3fe71f2717c447ff9a14317e1a095bd27b427288ba01fa4ea61cf691ba2604fb",
+    "division.ts": "c0ccadf70ca0d7ce845c02bcad5416abc55d2d1b1273ffde7323221c89498e87",
     "events.ts": "022be064c8a3af2719718eb5ecb38089140a84e4c938ed3903f74305632aa80f",
     "evidence.ts": "b3ab8a88b5bec5ed993d8418145151ece4fc461d30a66801a03492cb3645f214",
     "execution.ts": "a0b5c22ff04b5ec6ef9b5cca5c74da517a49f2f7e55472d4d0658831b25d2a7f",

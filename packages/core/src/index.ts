@@ -19,6 +19,8 @@ export type * from './contracts/events.ts';
 export type * from './contracts/permissions.ts';
 export type * from './contracts/execution.ts';
 export type * from './contracts/evidence.ts';
+export type * from './contracts/claim.ts';
+export type * from './contracts/division.ts';
 export type * from './contracts/health.ts';
 export { emptyUsage } from './contracts/execution.ts';
 

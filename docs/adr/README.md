@@ -20,3 +20,4 @@ silent edit.
 | [0010](0010-user-intelligence-before-learning.md) | User Intelligence precedes Learning (resolves C3) | Accepted |
 | [0011](0011-free-tier-provider-strategy.md) | Free-tier-only providers, two-adapter pattern | Accepted |
 | [0012](0012-command-center-design-direction.md) | Command Center design direction | Accepted |
+| [0013](0013-claim-and-division-contracts.md) | Claim and Division as Core contracts | Accepted |

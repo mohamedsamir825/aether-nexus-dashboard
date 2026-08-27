@@ -14,6 +14,8 @@ export type ModelId = Brand<string, 'ModelId'>;
 export type RunId = Brand<string, 'RunId'>;
 export type MemoryId = Brand<string, 'MemoryId'>;
 export type EvidenceId = Brand<string, 'EvidenceId'>;
+export type ClaimId = Brand<string, 'ClaimId'>;
+export type ContradictionId = Brand<string, 'ContradictionId'>;
 
 export const divisionId = (value: string): DivisionId => value as DivisionId;
 export const agentId = (value: string): AgentId => value as AgentId;
@@ -24,6 +26,8 @@ export const modelId = (value: string): ModelId => value as ModelId;
 export const runId = (value: string): RunId => value as RunId;
 export const memoryId = (value: string): MemoryId => value as MemoryId;
 export const evidenceId = (value: string): EvidenceId => value as EvidenceId;
+export const claimId = (value: string): ClaimId => value as ClaimId;
+export const contradictionId = (value: string): ContradictionId => value as ContradictionId;
 
 /** Injectable so runs are reproducible in tests. */
 export interface IdGenerator {
