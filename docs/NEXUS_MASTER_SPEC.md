@@ -1150,9 +1150,9 @@ explicitly. Deny-by-default still holds — omitting the grant blocks the path.
 | --- | --- | --- | --- |
 | A1 | ~~`Claim` with epistemic status~~ ✅ done (ADR 0013) | Research | — |
 | A2 | `Division` contract ✅ done (ADR 0013) — KPIs still deferred | All divisions | — |
-| A3 | Memory versioning and supersession with validity intervals | User model, forecast vintages | 10 |
+| A3 | ~~Memory versioning and supersession with validity intervals~~ ✅ done (ADR 0017), integrated into Research and Finance | User model, forecast vintages | — |
 | A4 | ~~`project` memory scope~~ ✅ done | Project memory | — |
-| A5 | Semantic retrieval (today: substring) | Memory quality | 10 |
+| A5 | Ranked retrieval ✅ BM25 shipped (ADR 0017) — **lexical, not semantic**; the `EmbeddingProvider` seam is declared and unfilled | Memory quality | 10 |
 | A6 | User Intelligence contract with confidence decay and scoped projection | Learning, all personalisation | 11 |
 | A7 | Cost field in `UsageMetrics` ✅ done (aggregation still open) | Observability, budgets | 4 |
 | A8 | Router inputs — **partly done**: quota, rate limit, free tier and task class ship (`limits.ts`, `task-classes.ts`, ADR 0011). Latency and reliability remain | Model layer | 4 |

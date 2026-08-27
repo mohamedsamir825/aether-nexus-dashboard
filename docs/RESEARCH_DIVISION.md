@@ -146,8 +146,14 @@ claims are never derived from prose.
 - **The URL guard does not resolve DNS.** It blocks every literal and syntactic
   path to a private address; a public hostname an attacker points at an internal
   IP is not stopped. Closing that needs connection-time pinning.
-- **No verification across runs.** Claims are not persisted, so a later run
-  cannot contradict an earlier one. That needs durable memory (Phase 10).
+- ~~**No verification across runs.**~~ **Resolved (Phase 10).** Claims,
+  contradictions and their evidence are persisted to the division's own memory
+  scope, and each run detects contradictions against what earlier runs
+  established. `ResearchResult.crossRunConflicts` separates "two of today's
+  sources disagree" from "today disagrees with last week". Evidence is stored
+  alongside the claims, so a recalled claim still resolves to its source,
+  publisher and retrieval timestamp rather than citing an id nothing can find.
+  A run without memory grants still works and reports `persisted: false`.
 
 ## Future extensions
 

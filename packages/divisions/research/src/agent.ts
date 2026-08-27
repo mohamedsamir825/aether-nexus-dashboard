@@ -31,6 +31,12 @@ import { buildClaims, createClaimValidator } from './claims.ts';
 import { createClaimVerifier } from './verify.ts';
 import { detectContradictions, markContradicted } from './contradictions.ts';
 import { synthesize } from './synthesize.ts';
+import {
+  RESEARCH_MEMORY_SCOPE,
+  recallPrior,
+  rememberFindings,
+  type PriorKnowledge,
+} from './persistence.ts';
 
 export const RESEARCH_DIVISION_ID = divisionId('research');
 export const RESEARCH_ANALYST_ID = agentId('research.analyst');
@@ -77,8 +83,8 @@ export function createResearchAnalyst(): AnyAgent {
       version: '1.0.0',
       skills: [],
       tools: [RESEARCH_RETRIEVE_TOOL_ID],
-      capabilities: ['tool:execute', 'research:retrieve'],
-      memoryScopes: [],
+      capabilities: ['tool:execute', 'research:retrieve', 'memory:read', 'memory:write'],
+      memoryScopes: [RESEARCH_MEMORY_SCOPE],
       // A capability, not a provider. Routing decides who serves it.
       modelPolicy: { requiredCapabilities: ['text'], allowFallback: true },
     },
@@ -123,7 +129,17 @@ export function createResearchAnalyst(): AnyAgent {
       const extracted = extractEvidence({ documents, subjects: request.subjects, runId });
       const built = buildClaims({ extracted, subjects: request.subjects, runId, now });
 
-      const contradictions = detectContradictions({ claims: built, now });
+      // What earlier runs established about these subjects. A store with
+      // nothing in it, or one this agent may not read, yields an empty prior
+      // rather than a failure: research without history is still research.
+      const recalled = await recallPrior({ memory: context.memory, subjects: request.subjects });
+      const prior: PriorKnowledge = recalled.ok ? recalled.value : { claims: [], evidence: [] };
+
+      // Contradiction detection runs over BOTH, which is the point of keeping
+      // history: a source disagreeing with what a different source said last
+      // week is the disagreement that usually matters, and a single run's
+      // corpus is gathered on one topic at one moment.
+      const contradictions = detectContradictions({ claims: [...prior.claims, ...built], now });
       const claims = markContradicted(built, contradictions);
 
       // Every claim is validated against §6.1. A malformed claim is a defect in
@@ -138,6 +154,10 @@ export function createResearchAnalyst(): AnyAgent {
       const evidence: readonly Evidence[] = [
         ...retrievalEvidence,
         ...extracted.map((e) => e.evidence),
+        // Prior evidence travels with prior claims. Without it a recalled
+        // claim cites evidence nothing can resolve -- a citation to nothing,
+        // which is worse than none because it looks like provenance.
+        ...prior.evidence,
       ];
 
       const verifier = createClaimVerifier({ now, evidence });
@@ -148,6 +168,23 @@ export function createResearchAnalyst(): AnyAgent {
         claims,
         contradictions,
         models: context.models,
+      });
+
+      // A conflict is cross-run when it involves a claim that came from
+      // memory rather than from this run's corpus.
+      const priorIds = new Set(prior.claims.map((c) => String(c.id)));
+      const crossRunConflicts = contradictions.filter((c) =>
+        c.claims.some((id) => priorIds.has(String(id))),
+      );
+
+      // Persisted after everything succeeded, so a run that failed validation
+      // does not leave its claims behind for the next one to build on.
+      const remembered = await rememberFindings({
+        memory: context.memory,
+        claims,
+        evidence: [...retrievalEvidence, ...extracted.map((e) => e.evidence)],
+        contradictions,
+        runId,
       });
 
       const result: ResearchResult = {
@@ -162,13 +199,17 @@ export function createResearchAnalyst(): AnyAgent {
         synthesisFromModel: synthesis.fromModel,
         runId,
         completedAt: now().toISOString(),
+        crossRunConflicts,
+        priorClaimsConsidered: prior.claims.length,
+        persisted: remembered.ok,
       };
 
       return ok({
         output: result,
         summary:
           `${claims.length} claim(s) from ${sources.length} source(s)` +
-          (contradictions.length > 0 ? `, ${contradictions.length} unresolved conflict(s)` : ''),
+          (contradictions.length > 0 ? `, ${contradictions.length} unresolved conflict(s)` : '') +
+          (crossRunConflicts.length > 0 ? ` (${crossRunConflicts.length} against earlier runs)` : ''),
         evidence,
         usage: { ...emptyUsage, toolCalls: retrieved.ok ? 1 : 0 },
       });

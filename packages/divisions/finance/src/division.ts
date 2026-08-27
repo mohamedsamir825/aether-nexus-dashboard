@@ -35,7 +35,12 @@ export const financeDescriptor: DivisionDescriptor = {
   // specialists; they are not implemented, so they are not claimed here.
   agents: [FINANCE_FPA_ID],
   entryPoints: ['fpa'],
-  requiredCapabilities: ['tool:execute', FINANCE_ACTUALS_CAPABILITY],
+  requiredCapabilities: [
+    'tool:execute',
+    FINANCE_ACTUALS_CAPABILITY,
+    'memory:read',
+    'memory:write',
+  ],
 };
 
 export interface CreateFinanceDivisionOptions extends FinanceAnalystOptions {

@@ -30,6 +30,7 @@ import {
   divisionId,
   emptyUsage,
   err,
+  type ScopedVersionedMemory,
   mergeUsage,
   nexusError,
   ok,
@@ -38,6 +39,7 @@ import { createForecastLedger, type ForecastLedger } from './ledger.ts';
 import { runLifecycle } from './lifecycle.ts';
 import { financeKpis } from './kpi.ts';
 import { sourceMarketInputs } from './market.ts';
+import { FINANCE_MEMORY_SCOPE, rememberVintage, restoreLedger } from './persistence.ts';
 import type { ScenarioSpec } from './forecast.ts';
 import { FINANCE_ACTUALS_TOOL_ID, type ActualsOutput } from './tool.ts';
 import type { FinanceRequest, FinanceResult, ForecastVintage } from './types.ts';
@@ -60,6 +62,19 @@ export type SensitivityModel = Readonly<Record<string, Readonly<Record<string, n
 
 export interface FinanceAnalystOptions {
   readonly ledger?: ForecastLedger;
+  /**
+   * Durable forecast history, pre-scoped by the composition root.
+   *
+   * `AgentContext.memory` carries the plain `ScopedMemory` surface, which has
+   * no `asOf` or `history` -- and adding them would be a Core contract change.
+   * So the versioned view arrives here instead, already narrowed to Finance's
+   * scope with a capability checked on every access, built the same way the
+   * Supervisor builds the plain one. Absent means this division runs without
+   * history, exactly as it did before Phase 10.
+   */
+  readonly versionedMemory?: ScopedVersionedMemory;
+  /** Names the forecast line, so several do not share one chain. */
+  readonly ledgerName?: string;
   readonly sensitivities: SensitivityModel;
   readonly scenarios?: readonly ScenarioSpec[];
   readonly horizon: readonly string[];
@@ -148,8 +163,8 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
       version: '1.0.0',
       skills: [],
       tools: [FINANCE_ACTUALS_TOOL_ID],
-      capabilities: ['tool:execute', 'finance:actuals'],
-      memoryScopes: [],
+      capabilities: ['tool:execute', 'finance:actuals', 'memory:read', 'memory:write'],
+      memoryScopes: [FINANCE_MEMORY_SCOPE],
       modelPolicy: { requiredCapabilities: ['text'], allowFallback: true },
     },
 
@@ -164,6 +179,7 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
 
       const request: FinanceRequest = task.input;
       const runId: RunId = context.runId;
+      const ledgerName = options.ledgerName ?? 'default';
       const now = () => context.clock.now();
 
       // --- stage 1: actuals, through the ToolBelt ---------------------------
@@ -190,9 +206,41 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
           ? request.baseline
           : { ...request.baseline, drivers: market.drivers };
 
-      // The ledger starts from the baseline the caller committed to, so the
-      // revision chain is anchored to a real prior position.
-      const ledger = options.ledger ?? createForecastLedger({ initial: [baseline] });
+      // A ledger restored from memory carries every vintage any earlier run
+      // wrote, which is what makes accuracy-per-horizon (§4.2) mean anything:
+      // a forecast made in January can be scored against April's actuals only
+      // if January's numbers still exist.
+      let ledger = options.ledger;
+      if (ledger === undefined && options.versionedMemory !== undefined) {
+        const restored = await restoreLedger({
+          memory: options.versionedMemory,
+          ledgerName,
+        });
+        // An unreadable chain is a real failure. Continuing with a fresh
+        // ledger would renumber every vintage after the missing one and make
+        // every horizon wrong by an amount nobody could see.
+        if (!restored.ok) return restored;
+        ledger = restored.value;
+      }
+      if (ledger === undefined) ledger = createForecastLedger();
+
+      // A ledger with no history is anchored on the caller's baseline -- and
+      // the baseline is PERSISTED too. Storing only revisions would leave the
+      // next process a chain starting at v2, which the ledger correctly
+      // refuses to load, and would lose the position the forecast started
+      // from. The first vintage is history as much as any later one.
+      if (ledger.head() === null) {
+        const seeded = ledger.append(baseline);
+        if (!seeded.ok) return seeded;
+        if (options.versionedMemory !== undefined) {
+          const stored = await rememberVintage({
+            memory: options.versionedMemory,
+            ledgerName,
+            vintage: baseline,
+          });
+          if (!stored.ok) return stored;
+        }
+      }
 
       const outcome = runLifecycle({
         actuals,
@@ -210,6 +258,19 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
       });
       if (!outcome.ok) return outcome;
 
+      // Persisted so the next run -- or the next process -- starts from this
+      // position rather than from the caller's baseline.
+      let persisted = false;
+      if (outcome.value.revised !== null && options.versionedMemory !== undefined) {
+        const stored = await rememberVintage({
+          memory: options.versionedMemory,
+          ledgerName,
+          vintage: outcome.value.revised,
+        });
+        if (!stored.ok) return stored;
+        persisted = true;
+      }
+
       const partial = {
         request,
         variances: outcome.value.variances,
@@ -225,6 +286,7 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
           revised: outcome.value.revised,
         }),
         unsourcedMarketDrivers: market.unsourced,
+        persisted,
       };
 
       const result: FinanceResult = { ...partial, narrative: narrate(partial) };

@@ -52,9 +52,15 @@ scenario basis is therefore structural, not a field somebody might forget.
 
 ## Known limitations
 
-- **No durability.** A ledger lives for one process. Versioned memory is gap
-  `A3`, Phase 10. History within a run is complete; history across restarts does
-  not exist.
+- ~~**No durability.**~~ **Resolved (Phase 10).** Vintages persist as versions
+  of one key in the division's memory scope, and the ledger is rebuilt from
+  history on start. A vintage and a `VersionedRecord` mean the same thing --
+  immutable, ordered, superseded, with a reason -- so this is a fit rather than
+  a forcing, and `asOf` works across processes without new machinery. Accuracy
+  per horizon (§4.2) is finally measurable: a January forecast can be scored
+  against April's actuals because January's numbers still exist. An unreadable
+  stored vintage refuses rather than starting fresh, because a silently skipped
+  vintage renumbers every one after it.
 - **No scheduling.** §4.3 says the loop runs on "events and schedules".
   `Scheduler` is gap `A10`, Phase 12. The event half is implemented — a run
   begins when actuals arrive — and the schedule half is not.

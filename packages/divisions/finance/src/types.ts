@@ -221,5 +221,7 @@ export interface FinanceResult {
    * detail to smooth over.
    */
   readonly unsourcedMarketDrivers: readonly string[];
+  /** Whether a new vintage was written to durable memory for the next run. */
+  readonly persisted: boolean;
   readonly narrative: string;
 }

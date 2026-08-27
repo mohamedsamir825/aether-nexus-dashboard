@@ -89,4 +89,17 @@ export interface ResearchResult {
   readonly synthesisFromModel: boolean;
   readonly runId: RunId;
   readonly completedAt: string;
+  /**
+   * Claims recalled from earlier runs that this run's findings conflict with.
+   *
+   * Separate from `contradictions` so a reader can tell "two of today's
+   * sources disagree" from "today disagrees with what we concluded last
+   * week" -- different problems, and the second one is invisible without
+   * durable memory.
+   */
+  readonly crossRunConflicts: readonly Contradiction[];
+  /** How many prior claims informed this run. 0 means memory was empty or unreadable. */
+  readonly priorClaimsConsidered: number;
+  /** Whether this run's findings were persisted for the next one. */
+  readonly persisted: boolean;
 }

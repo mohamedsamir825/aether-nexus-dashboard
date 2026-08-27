@@ -41,6 +41,7 @@ export * from './runtime/usage.ts';
 export * from './contracts/versioned-memory.ts';
 export * from './runtime/retrieval-rank.ts';
 export * from './runtime/durable-memory.ts';
+export * from './runtime/scoped-versioned-memory.ts';
 export * from './runtime/health.ts';
 export * from './runtime/execution.ts';
 export * from './runtime/budget.ts';

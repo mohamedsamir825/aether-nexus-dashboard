@@ -39,7 +39,13 @@ export const researchDescriptor: DivisionDescriptor = {
   entryPoints: [RESEARCH_ANALYST_ROLE],
   // Declared so a deployment can see the blast radius before installing. This
   // requests capabilities; it does not grant them (ADR 0005).
-  requiredCapabilities: ['agent:dispatch', 'tool:execute', RESEARCH_RETRIEVE_CAPABILITY],
+  requiredCapabilities: [
+    'agent:dispatch',
+    'tool:execute',
+    RESEARCH_RETRIEVE_CAPABILITY,
+    'memory:read',
+    'memory:write',
+  ],
 };
 
 export interface CreateResearchDivisionOptions {
