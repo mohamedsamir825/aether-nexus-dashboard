@@ -15,6 +15,7 @@
  * an optional evidence reference of their own instead — see `Amount`.
  */
 import {
+  type Evidence,
   type ExecutionContext,
   type Result,
   type SchemaValidator,
@@ -23,6 +24,7 @@ import {
   type ToolOutcome,
   err,
   nexusError,
+  evidenceId,
   ok,
   schemaValidator as defaultValidator,
   toolId,
@@ -62,7 +64,7 @@ export const actualsDescriptor: ToolDescriptor = {
   },
   requiredCapabilities: [FINANCE_ACTUALS_CAPABILITY],
   sideEffect: 'read',
-  producesEvidence: false,
+  producesEvidence: true,
 };
 
 /** Where period actuals come from. Injected, so tests need no source of truth. */
@@ -114,7 +116,7 @@ export function createActualsTool(
 
     async execute(
       input: ActualsInput,
-      _context: ExecutionContext,
+      context: ExecutionContext,
     ): Promise<Result<ToolOutcome<ActualsOutput>>> {
       const loaded = await options.source.load(input.period);
       if (!loaded.ok) return loaded;
@@ -131,7 +133,24 @@ export function createActualsTool(
         );
       }
 
-      return ok({ output: { actuals: loaded.value } });
+      const evidence: Evidence = {
+        id: evidenceId(`ev_${context.runId}_actuals_${input.period}`),
+        // What this attests to is the VALIDATION, not the health of the
+        // business. Asserting the latter would be the division claiming
+        // something it has not analysed yet.
+        claim:
+          `period '${input.period}' actuals were validated by ${loaded.value.validatedBy} ` +
+          `and cover ${loaded.value.amounts.length} line item(s)`,
+        source: {
+          kind: 'dataset',
+          title: `validated actuals ${input.period}`,
+          // The validation timestamp, distinct from when this run read them.
+          retrievedAt: loaded.value.validatedAt,
+        },
+        confidence: 1,
+      };
+
+      return ok({ output: { actuals: loaded.value }, evidence: [evidence] });
     },
 
     async health() {

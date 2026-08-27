@@ -16,6 +16,7 @@ import {
   type AgentId,
   type Claim,
   type ClaimId,
+  type EvidenceId,
   type Result,
   type RunId,
   claimId,
@@ -34,6 +35,8 @@ import type {
 /** Turns a material variance into a stated fact about the numbers. */
 export function varianceClaim(params: {
   readonly variance: Variance;
+  /** The validated-actuals evidence this comparison rests on. */
+  readonly supportedBy: readonly EvidenceId[];
   readonly runId: RunId;
   readonly createdAt: string;
 }): Claim {
@@ -44,12 +47,14 @@ export function varianceClaim(params: {
     statement:
       `${variance.lineItem} for ${variance.period} came in ${Math.abs(variance.delta)} ` +
       `${direction} forecast (${variance.actual} actual vs ${variance.forecast} forecast).`,
-    // A variance is arithmetic over two numbers this system holds. It is a
-    // fact about the ledger, which is a narrower claim than a fact about the
-    // world -- and it is the only one the arithmetic supports.
+    // A fact about the LEDGER -- a narrower claim than a fact about the world,
+    // and the only one the arithmetic supports. It cites the Controller's
+    // validation of the actuals, because §6.1 is right that a fact with no
+    // evidence is a defect: without that citation this would assert a number
+    // with nothing behind it.
     status: 'fact',
     subject: `${variance.lineItem}:${variance.period}`,
-    supportedBy: [],
+    supportedBy: params.supportedBy,
     contradictedBy: [],
     derivedFrom: [],
     assumptions: [],

@@ -1155,7 +1155,7 @@ explicitly. Deny-by-default still holds — omitting the grant blocks the path.
 | A5 | Semantic retrieval (today: substring) | Memory quality | 10 |
 | A6 | User Intelligence contract with confidence decay and scoped projection | Learning, all personalisation | 11 |
 | A7 | Cost field in `UsageMetrics` ✅ done (aggregation still open) | Observability, budgets | 4 |
-| A8 | Router inputs: quota, rate limit, latency, reliability, free tier, task class | Model layer | 4 |
+| A8 | Router inputs — **partly done**: quota, rate limit, free tier and task class ship (`limits.ts`, `task-classes.ts`, ADR 0011). Latency and reliability remain | Model layer | 4 |
 | A9 | `Orchestrator` contract | Multi-step work | 4 |
 | A10 | `BackgroundJob` + `Scheduler` contracts | Background intelligence | 12 |
 | A11 | `Notification` contract | Alerts | 12 |

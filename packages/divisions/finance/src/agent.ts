@@ -162,6 +162,7 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
       );
       if (!loaded.ok) return loaded;
       const actuals = loaded.value.output.actuals;
+      const actualsEvidence = loaded.value.evidence ?? [];
 
       // The ledger starts from the baseline the caller committed to, so the
       // revision chain is anchored to a real prior position.
@@ -169,6 +170,7 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
 
       const outcome = runLifecycle({
         actuals,
+        actualsEvidence: actualsEvidence.map((e) => e.id),
         baseline: request.baseline,
         ledger,
         ...(request.materiality !== undefined ? { materiality: request.materiality } : {}),
@@ -203,10 +205,10 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
             ? 'forecast not revised'
             : `revised to vintage v${outcome.value.revised.version}`) +
           `; ${outcome.value.recommendations.length} recommendation(s)`,
-        // Finance asserts nothing about the world, so it attests to nothing.
-        // Market inputs that DO carry evidence arrive by delegation to
-        // Research and keep the evidence Research gave them.
-        evidence: [],
+        // The Controller's validation of the actuals, which is what every
+        // variance claim cites. Market inputs will add to this when Finance
+        // delegates to Research for them.
+        evidence: actualsEvidence,
         usage: { ...emptyUsage, toolCalls: 1 },
       });
     },

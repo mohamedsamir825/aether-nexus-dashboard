@@ -14,71 +14,14 @@
  *   inference   several independent sources agree; that agreement is derived
  *   uncertain   a subject was asked about and nothing was found
  */
-import {
-  type Claim,
-  type ClaimValidator,
-  type Result,
-  type RunId,
-  claimId,
-  err,
-  nexusError,
-  ok,
-} from '@nexus/core';
-import type { ExtractedEvidence } from './extract.ts';
+import { type Claim, type RunId, claimId } from '@nexus/core';
 
 /**
- * Enforces spec §6.1 structurally. A rule enforced only by convention is one a
- * model under pressure to sound confident will eventually break.
+ * Re-exported so existing callers keep working. The implementation moved to
+ * the Core: §6.1 is a system-wide rule, and Finance needs it too.
  */
-export function createClaimValidator(): ClaimValidator {
-  return {
-    validate(claim: Claim): Result<void> {
-      const problems: string[] = [];
-
-      if (claim.statement.trim() === '') problems.push('statement is empty');
-      if (claim.subject.trim() === '') problems.push('subject is empty');
-      if (!Number.isFinite(claim.confidence) || claim.confidence < 0 || claim.confidence > 1) {
-        problems.push('confidence must be between 0 and 1');
-      }
-
-      switch (claim.status) {
-        case 'fact':
-          // §6.1: "A FACT without evidence is a defect, not a stylistic issue."
-          if (claim.supportedBy.length === 0) {
-            problems.push('a fact must cite at least one piece of evidence');
-          }
-          break;
-        case 'inference':
-          if (claim.derivedFrom.length === 0) {
-            problems.push('an inference must name the claims it derives from');
-          }
-          break;
-        case 'recommendation':
-          if (claim.derivedFrom.length === 0) {
-            problems.push('a recommendation must name the claims it derives from');
-          }
-          if (claim.assumptions.length === 0) {
-            problems.push('a recommendation must state its assumptions');
-          }
-          break;
-        case 'uncertain':
-          if (!claim.uncertaintyReason || claim.uncertaintyReason.trim() === '') {
-            problems.push('an uncertain claim must say what is missing or conflicting');
-          }
-          break;
-      }
-
-      if (problems.length > 0) {
-        return err(
-          nexusError('INVALID_INPUT', `invalid ${claim.status} claim: ${problems.join('; ')}`, {
-            details: { claimId: claim.id, status: claim.status, problems },
-          }),
-        );
-      }
-      return ok(undefined);
-    },
-  };
-}
+export { createClaimValidator } from '@nexus/core';
+import type { ExtractedEvidence } from './extract.ts';
 
 export interface BuildClaimsOptions {
   readonly extracted: readonly ExtractedEvidence[];

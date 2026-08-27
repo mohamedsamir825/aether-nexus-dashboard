@@ -11,6 +11,7 @@ import {
   DISPATCH_CAPABILITY,
   agentId,
   allowListPolicy,
+  createClaimValidator,
   createNexusSystem,
   fixedClock,
   loadConfig,
@@ -195,6 +196,45 @@ describe('the §4.3 lifecycle, end to end', () => {
       expect(rec.claim.derivedFrom.length).toBeGreaterThan(0);
       expect(rec.claim.assumptions.length).toBeGreaterThan(0);
       expect(rec.claim.assumptions.some((a) => a.includes('probability'))).toBe(true);
+    }
+  });
+
+  test('the claim chain is real: Claim -> Evidence -> Source -> Run', async () => {
+    // §6.1 enforced by the Core validator, not asserted by this test alone.
+    // Wiring that validator in is what exposed that variance claims were
+    // `fact`s citing nothing -- the actuals now carry the Controller's
+    // validation as evidence, and every variance claim cites it.
+    const built = build([Q1_ABOVE]);
+    const result = await ask(built, '2026-Q1');
+    if (!result.ok) throw new Error('expected success');
+    const finance = result.value.output as FinanceResult;
+
+    expect(result.value.evidence.length).toBeGreaterThan(0);
+    const actualsEvidence = result.value.evidence[0];
+    expect(actualsEvidence?.source.kind).toBe('dataset');
+    // Validation time, distinct from when this run read them.
+    expect(actualsEvidence?.source.retrievedAt).toBe(Q1_ABOVE.validatedAt);
+
+    for (const rec of finance.recommendations) {
+      // recommendation -> attribution claims -> variance claims -> evidence
+      expect(rec.claim.derivedFrom.length).toBeGreaterThan(0);
+    }
+  });
+
+  test('every claim Finance emits passes the Core §6.1 validator', async () => {
+    // The same validator Research is held to. Two divisions enforcing "a fact
+    // without evidence is a defect" separately would drift apart.
+    const validator = createClaimValidator();
+    const built = build([Q1_ABOVE]);
+    const result = await ask(built, '2026-Q1');
+    if (!result.ok) throw new Error('expected success');
+    const finance = result.value.output as FinanceResult;
+
+    const emitted = [...finance.recommendations.map((r) => r.claim)];
+    expect(emitted.length).toBeGreaterThan(0);
+    for (const claim of emitted) {
+      const valid = validator.validate(claim);
+      expect(valid.ok, `invalid claim: ${valid.ok ? '' : valid.error.message}`).toBe(true);
     }
   });
 
