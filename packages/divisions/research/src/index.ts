@@ -1,5 +1,7 @@
 export * from './types.ts';
 export * from './retrieval.ts';
+export * from './url-guard.ts';
+export * from './http-retrieval.ts';
 export * from './tool.ts';
 export * from './extract.ts';
 export * from './claims.ts';

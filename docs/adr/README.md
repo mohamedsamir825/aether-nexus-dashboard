@@ -22,3 +22,4 @@ silent edit.
 | [0012](0012-command-center-design-direction.md) | Command Center design direction | Accepted |
 | [0013](0013-claim-and-division-contracts.md) | Claim and Division as Core contracts | Accepted |
 | [0014](0014-verification-confidence.md) | `VerificationResult` carries a confidence (§19.1) | Accepted |
+| [0015](0015-http-source-retriever.md) | A native HTTP `SourceRetriever` | Accepted |

@@ -139,9 +139,13 @@ claims are never derived from prose.
   detection is unsolved and is not approximated here.
 - **Relevance is term overlap.** No semantic search until memory has an index
   (Phase 10).
-- **Retrieval is local only.** Fixtures and a local directory. No web retrieval,
-  no crawler, no browser — a real HTTP retriever is future work behind the same
-  `SourceRetriever` interface.
+- **Retrieval reaches only what the owner listed.** Fixtures, a local directory,
+  and now HTTP (`createHttpRetriever`, ADR 0015) — but the HTTP retriever is
+  given its sources and never discovers new ones. No search engine, no crawler,
+  no browser. A document naming another URL cannot cause it to be fetched.
+- **The URL guard does not resolve DNS.** It blocks every literal and syntactic
+  path to a private address; a public hostname an attacker points at an internal
+  IP is not stopped. Closing that needs connection-time pinning.
 - **No verification across runs.** Claims are not persisted, so a later run
   cannot contradict an earlier one. That needs durable memory (Phase 10).
 

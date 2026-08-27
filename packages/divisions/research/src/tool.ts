@@ -125,7 +125,12 @@ export function createRetrieveTool(
           // What this evidence attests to is the RETRIEVAL, not the content's
           // truth. Asserting the content here would be the division claiming
           // something it has not yet analysed.
-          claim: `source '${ref.title}' was retrieved and contains text relevant to: ${input.query}`,
+          // When a reader service rendered the page, the evidence says so: the
+          // excerpt is verbatim with respect to that rendering, not the origin.
+          claim:
+            `source '${ref.title}' was retrieved` +
+            (retrieved.value.via !== undefined ? ` via ${retrieved.value.via}` : '') +
+            ` and contains text relevant to: ${input.query}`,
           source: {
             kind: 'document',
             uri: ref.locator,

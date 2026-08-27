@@ -20,14 +20,27 @@ export interface SourceRetriever {
   retrieve(ref: SourceRef): Promise<Result<RetrievedContent>>;
 }
 
-/** Stable, dependency-free content hash (FNV-1a, 32-bit, hex). */
-export function contentHash(text: string): string {
+/**
+ * Stable, dependency-free content hash of the exact bytes given (FNV-1a,
+ * 32-bit, hex).
+ *
+ * Bytes rather than characters because a network retriever must attest to what
+ * it actually received, not to a decoding of it: two different byte sequences
+ * can decode to the same string once replacement characters are involved, and a
+ * hash that cannot tell them apart cannot detect drift (§19.2).
+ */
+export function contentHashBytes(bytes: Uint8Array): string {
   let hash = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
+  for (let i = 0; i < bytes.length; i++) {
+    hash ^= bytes[i] as number;
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return hash.toString(16).padStart(8, '0');
+}
+
+/** The same hash over text, encoded as UTF-8 first. */
+export function contentHash(text: string): string {
+  return contentHashBytes(new TextEncoder().encode(text));
 }
 
 /** Lowercased words of 3+ characters. Used for relevance, nothing else. */

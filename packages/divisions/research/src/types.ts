@@ -28,8 +28,19 @@ export interface RetrievedContent {
    */
   readonly text: string;
   readonly retrievedAt: string;
-  /** Detects later drift, per spec §19.2. */
+  /** Of the bytes actually received. Detects later drift, per spec §19.2. */
   readonly contentHash: string;
+  /**
+   * The reader service the text passed through, when one was used.
+   *
+   * Present means `text` is that service's RENDERING of the source, not the
+   * source itself, and `contentHash` attests to the rendering. Saying so is the
+   * point: a "verbatim excerpt" of a transformation is verbatim with respect to
+   * the transformation, and quietly calling that the source would make the
+   * evidence guarantee attest to the wrong artefact. Absent means the bytes
+   * came from the origin directly.
+   */
+  readonly via?: string;
 }
 
 export interface ResearchRequest {
