@@ -47,6 +47,9 @@
       "dependencies": {
         "@nexus/core": "workspace:*",
       },
+      "devDependencies": {
+        "@nexus/division-research": "workspace:*",
+      },
     },
     "packages/divisions/research": {
       "name": "@nexus/division-research",

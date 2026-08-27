@@ -30,12 +30,14 @@ import {
   divisionId,
   emptyUsage,
   err,
+  mergeUsage,
   nexusError,
   ok,
 } from '@nexus/core';
 import { createForecastLedger, type ForecastLedger } from './ledger.ts';
 import { runLifecycle } from './lifecycle.ts';
 import { financeKpis } from './kpi.ts';
+import { sourceMarketInputs } from './market.ts';
 import type { ScenarioSpec } from './forecast.ts';
 import { FINANCE_ACTUALS_TOOL_ID, type ActualsOutput } from './tool.ts';
 import type { FinanceRequest, FinanceResult, ForecastVintage } from './types.ts';
@@ -81,6 +83,14 @@ function isFinanceRequest(input: unknown): input is FinanceRequest {
 /** The narrative is derived from the structured result. Never the reverse. */
 function narrate(result: Omit<FinanceResult, 'narrative'>): string {
   const lines: string[] = [`Question: ${result.request.question}`, ''];
+
+  if (result.unsourcedMarketDrivers.length > 0) {
+    lines.push(
+      `Unsourced market drivers: ${result.unsourcedMarketDrivers.join(', ')} — ` +
+        'Research returned no evidence for these, so they rest on assumption alone.',
+      '',
+    );
+  }
 
   const material = result.variances.filter((v) => v.material);
   if (material.length === 0) {
@@ -165,14 +175,29 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
       const actuals = loaded.value.output.actuals;
       const actualsEvidence = loaded.value.evidence ?? [];
 
+      // --- market inputs, by delegation to Research (§4.3) ------------------
+      // Runs through the Supervisor, so the shared budget, the delegation
+      // depth bound and the event trail all apply. Finance never reaches
+      // Research's pipeline directly.
+      const market = await sourceMarketInputs({
+        inputs: request.marketInputs ?? [],
+        drivers: request.baseline.drivers,
+        context,
+      });
+
+      const baseline =
+        market.drivers === request.baseline.drivers
+          ? request.baseline
+          : { ...request.baseline, drivers: market.drivers };
+
       // The ledger starts from the baseline the caller committed to, so the
       // revision chain is anchored to a real prior position.
-      const ledger = options.ledger ?? createForecastLedger({ initial: [request.baseline] });
+      const ledger = options.ledger ?? createForecastLedger({ initial: [baseline] });
 
       const outcome = runLifecycle({
         actuals,
         actualsEvidence: actualsEvidence.map((e) => e.id),
-        baseline: request.baseline,
+        baseline,
         ledger,
         ...(request.materiality !== undefined ? { materiality: request.materiality } : {}),
         observed: options.observedDrivers?.[actuals.period] ?? [],
@@ -199,6 +224,7 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
           attributions: outcome.value.attributions,
           revised: outcome.value.revised,
         }),
+        unsourcedMarketDrivers: market.unsourced,
       };
 
       const result: FinanceResult = { ...partial, narrative: narrate(partial) };
@@ -212,11 +238,12 @@ export function createFinanceAnalyst(options: FinanceAnalystOptions): AnyAgent {
             ? 'forecast not revised'
             : `revised to vintage v${outcome.value.revised.version}`) +
           `; ${outcome.value.recommendations.length} recommendation(s)`,
-        // The Controller's validation of the actuals, which is what every
-        // variance claim cites. Market inputs will add to this when Finance
-        // delegates to Research for them.
-        evidence: actualsEvidence,
-        usage: { ...emptyUsage, toolCalls: 1 },
+        // The Controller's validation of the actuals, which every variance
+        // claim cites, plus whatever Research supplied for market drivers.
+        evidence: [...actualsEvidence, ...market.evidence],
+        // One tool call of its own, plus everything the delegated Research
+        // runs actually cost.
+        usage: mergeUsage(market.usage, { ...emptyUsage, toolCalls: 1 }),
       });
     },
 

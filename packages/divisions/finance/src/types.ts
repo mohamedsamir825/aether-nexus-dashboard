@@ -67,6 +67,30 @@ export interface Driver {
   readonly value: number;
   /** Free text, but required: an assumption nobody wrote down is not one. */
   readonly basis: string;
+  /**
+   * Evidence behind the basis, when the driver was sourced rather than assumed.
+   *
+   * §4.3 requires market inputs to arrive by delegation to Research carrying
+   * evidence. A market driver that ends up with none is a defect, and
+   * `unsourcedMarketDrivers` on the result names it rather than letting an
+   * unsupported number sit indistinguishably beside sourced ones.
+   */
+  readonly evidence?: readonly EvidenceId[];
+}
+
+/**
+ * A driver whose context comes from outside Finance (§4.3).
+ *
+ * Note what this does NOT do: it never lets Research's prose set the number.
+ * Extracting a value from a sentence is the fabrication this project keeps
+ * refusing -- the owner supplies the figure, and delegation supplies the
+ * sourced basis and the evidence that stands behind it.
+ */
+export interface MarketInput {
+  /** The driver this research is about. */
+  readonly driver: string;
+  readonly question: string;
+  readonly subjects: readonly string[];
 }
 
 /**
@@ -173,6 +197,8 @@ export interface FinanceRequest {
   /** The forecast those actuals are measured against. */
   readonly baseline: ForecastVintage;
   readonly materiality?: MaterialityPolicy;
+  /** Drivers whose basis should be sourced from Research before analysis. */
+  readonly marketInputs?: readonly MarketInput[];
 }
 
 export interface FinanceResult {
@@ -187,5 +213,13 @@ export interface FinanceResult {
   readonly vintages: readonly ForecastVintage[];
   /** §4.2, measured rather than asserted. See `kpi.ts` for what is absent. */
   readonly kpis: FinanceKpis;
+  /**
+   * Market drivers that were asked about and came back with no evidence.
+   *
+   * Named rather than silently tolerated: §4.3 says market inputs carry
+   * evidence, so one that does not is a finding the reader needs, not a
+   * detail to smooth over.
+   */
+  readonly unsourcedMarketDrivers: readonly string[];
   readonly narrative: string;
 }
