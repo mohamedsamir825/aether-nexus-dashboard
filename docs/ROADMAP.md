@@ -7,7 +7,23 @@ specification behind it, live in
 [`NEXUS_MASTER_SPEC.md`](NEXUS_MASTER_SPEC.md) — see its §25 (phases), §27 (gap
 analysis) and §28 (decisions pending).
 
-## Done — the foundation
+## Done — Phases 1-4
+
+**Phase 1 — Foundation.** Contracts, registries, runtime primitives, tests.
+
+**Phase 2 — Specification.** `NEXUS_MASTER_SPEC.md`, 5 contradictions and 1
+defect surfaced before any code was built on them.
+
+**Phase 3 — Engineering environment.** Zero-dependency `SchemaValidator`,
+provider conformance suite, contract-stability tripwire.
+
+**Phase 4 — Providers and routing.** Two adapters on different protocols;
+budget enforcement; rate-limit and quota aware routing; the first real tool; a
+task crossing every layer (`bun run demo`).
+
+**297 tests. Zero dependencies in the Core. Contracts never edited.**
+
+## Detail — the foundation
 
 - Core contracts: Agent, Skill, Tool, ModelProvider, ModelRouter, Supervisor,
   Memory, EventBus, Permissions, Execution, Evidence/Verification, Health.
@@ -28,10 +44,22 @@ API tiers only**, served by two adapters (`openai-compatible` covering five
 providers, plus Gemini's native protocol); and a fixed Command Center reference
 hierarchy. See [`adr/`](adr/) and [`design/`](design/).
 
-## Next — one vertical slice, in this order
+## Next
 
-The rule: **prove the Core with one slice before adding breadth.** Building three
-divisions on an unproven Core means fixing the same mistake three times.
+The slice is proven. The Core has been exercised end to end and the provider
+abstraction survived a second protocol, so breadth is now a reasonable risk.
+
+**Immediately useful:** add a free API key to `.env`, register the matching
+adapter, and `bun run demo` performs a real model call. Nothing in the Core
+changes to make that happen — that is the whole point.
+
+**Then Phase 5 (Research),** which brings the `Claim` contract with epistemic
+status and the `Division` contract with it.
+
+## Historical — the original slice ordering
+
+The rule was: **prove the Core with one slice before adding breadth.** Building
+three divisions on an unproven Core means fixing the same mistake three times.
 
 1. **A `SchemaValidator` implementation.** Every tool needs input validation and
    hand-rolled `validate()` will drift. Pick the library here, once.

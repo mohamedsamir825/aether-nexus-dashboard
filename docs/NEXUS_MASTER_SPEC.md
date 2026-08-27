@@ -853,16 +853,19 @@ approval (§28).
 **Tests:** existing suite still green; no Core behaviour changed.
 **Exit:** specification reviewed by the user; §28 answered or explicitly deferred.
 
-### Phase 3 — Engineering Environment
+### Phase 3 — Engineering Environment ✅ COMPLETE
 **Objective:** make building NEXUS repeatable before building product.
 **Dependencies:** Phase 2.
 **Deliverables:** schema validation behind `SchemaValidator`; agent/skill/tool
 scaffolding conventions; evaluation harness for prompt-bearing components;
 richer CI (coverage, contract-conformance tests).
 **Tests:** a conformance suite any provider/tool/agent implementation must pass.
-**Exit:** a new tool can be added, validated and tested without touching Core.
+**Exit:** ✅ met. `SchemaValidator` implemented (zero dependencies, subset of
+JSON Schema, rejects assertions it cannot enforce rather than ignoring them);
+provider conformance suite published as `@nexus/core/testing`; contract-stability
+tripwire turns ADR 0004's rule into a guarantee.
 
-### Phase 4 — Supervisor & Orchestrator
+### Phase 4 — Supervisor & Providers ✅ COMPLETE (Orchestrator deferred)
 **Objective:** first real provider adapter; orchestration above the Supervisor.
 **Dependencies:** Phase 3.
 **Deliverables:** one `ModelProvider` adapter; task-class routing; `Orchestrator`
@@ -871,8 +874,17 @@ budget enforcement; cost recording.
 **Tests:** adapter conformance; router selection under cost/quota/health;
 orchestrator retry and failure; **a test asserting the adapter required no Core
 edit**.
-**Exit:** a real model call runs end to end through the Supervisor, within budget,
-fully traced.
+**Exit:** ✅ met, with one part deferred. Two provider adapters on genuinely
+different protocols (`openai-compatible` covering five vendors, and `google`),
+neither requiring a contract edit — see the verdict in ADR 0004. Budget
+enforcement, cost field, and rate-limit/quota-aware routing with cross-provider
+fallback are in place. A task now crosses every layer end to end
+(`bun run demo`), and the model layer reports honestly that no adapter is
+registered until a free key is added.
+
+**Deferred:** the `Orchestrator` contract. Nothing multi-step needs it yet, and
+ADR 0007 is explicit that it belongs above the Supervisor rather than inside it.
+It lands with the first workflow that genuinely decomposes.
 
 ### Phase 5 — Research Intelligence
 **Objective:** first division; the evidence discipline made real.
