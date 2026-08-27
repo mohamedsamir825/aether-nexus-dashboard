@@ -103,5 +103,5 @@ Each has a defined seam in the Core, so each is additive rather than blocked.
   `ARCHITECTURE.md`.
 - **Budget enforcement.** `ExecutionBudget` is defined and inherited by child
   runs, but nothing enforces it yet. Needed before autonomous execution.
-- **Repository name.** Still `aether-nexus-dashboard`; the root package is
-  `nexus`. Owner's call.
+- ~~**Repository name.**~~ Decided: `mohamedsamir825/NEXUS` (private) is the
+  canonical repository, migrated with full history.

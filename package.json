@@ -4,6 +4,10 @@
   "private": true,
   "description": "NEXUS \u2014 Personal Intelligence & Execution System. Monorepo root.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mohamedsamir825/NEXUS.git"
+  },
   "type": "module",
   "packageManager": "bun@1.3.14",
   "workspaces": [

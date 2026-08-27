@@ -1204,8 +1204,10 @@ the Command Center starting point, or delete it at Phase 14? Deferred by ADR 000
 Note that [ADR 0012](adr/0012-command-center-design-direction.md) now fixes the
 *design direction* independently, and it is not the template's direction.
 
-**D9 — Repository name.** Still `aether-nexus-dashboard`; the root package is
-`nexus`.
+**D9 — Repository name.** ✅ **DECIDED.** The private repository
+`mohamedsamir825/NEXUS` is the canonical home. Migrated with full history
+preserved (11 commits, identical tree); `main` there carries the complete
+project. The original public fork is retired and retained only as history.
 
 ---
 
@@ -1219,7 +1221,7 @@ Note that [ADR 0012](adr/0012-command-center-design-direction.md) now fixes the
 | Contradictions found | 5 (C1–C5) — **C1–C3 resolved** by ADRs 0008–0010; **C5 fixed** in code |
 | Defects found | 1 (G1) — **fixed**, with a regression test |
 | Additive gaps | 14 (A1–A14) |
-| Decisions pending | 9 (D1–D9) — **D1–D4 decided**; D5–D9 open |
+| Decisions pending | 9 (D1–D9) — **D1–D4 and D9 decided**; D5–D8 open |
 
 **Related:** [`ARCHITECTURE.md`](ARCHITECTURE.md) — what the Core does today ·
 [`ROADMAP.md`](ROADMAP.md) — near-term sequencing · [`adr/`](adr/) — accepted

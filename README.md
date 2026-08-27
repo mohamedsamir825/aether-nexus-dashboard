@@ -2,31 +2,36 @@
 
 A Personal Intelligence & Execution System, built to grow into a Business/Executive OS.
 
-**Status: engineering foundation only.** The Core contracts, registries, permission
-model, provider-agnostic model layer, and test infrastructure exist. No divisions,
-no agents, no tools, no UI wiring, and no provider adapters exist yet — that is
+**Status: Phases 1–4 complete.** The Core, two provider adapters, rate-limit and
+quota aware routing, the first real tool, and a task that crosses every layer all
+exist. No divisions, no agents beyond a demo one, and no UI wiring — that is
 deliberate, not incomplete work. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what
 comes next and what is intentionally deferred.
 
 ## What is here
 
 ```txt
-packages/core/     The Core: contracts, registries, runtime primitives. Zero runtime dependencies.
-apps/dashboard/    A vendored third-party dashboard template. NOT wired to Core. See its README.
-docs/              Architecture, decision records, and roadmap.
+packages/core/       The Core: contracts, registries, runtime primitives. Zero dependencies.
+packages/providers/  Model provider adapters (OpenAI-compatible, Google Gemini).
+packages/tools/      Tools agents can invoke (arithmetic).
+apps/dashboard/      A vendored third-party dashboard template. NOT wired to Core.
+docs/                Architecture, decision records, roadmap, design references.
 ```
 
 ## Quick start
 
 ```bash
 bun install
-bun test          # 78 tests, no network, no credentials
+bun test packages # 297 tests, no network, no credentials, zero API cost
 bun run health    # honest system status; exits non-zero while unavailable
+bun run demo      # one task across every layer, end to end
 ```
 
-`bun run health` currently reports `unavailable`. That is the correct answer: no
-model provider adapters are registered, so the system says it cannot serve model
-calls rather than discovering that at the first request.
+`bun run health` reports `unavailable` until a provider adapter is registered with
+a credential. That is the correct answer, not a failure: the system says it cannot
+serve model calls rather than discovering that at the first request. Add a free API
+key to `.env` and register the matching adapter — **nothing in the Core changes**,
+which is the point of ADR 0004.
 
 ## Scripts
 

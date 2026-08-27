@@ -36,9 +36,11 @@ gone, and the Core stays UI-agnostic. Deleting it later is one `git rm`.
 Bad: the repository carries an app that does nothing for NEXUS yet, which may
 mislead a newcomer. Its README now states this explicitly.
 
-Note: the repository is still named `aether-nexus-dashboard` and the root
-`package.json` was renamed to `nexus`. Renaming the repository is the owner's
-call.
+Note: the naming mismatch this ADR flagged is resolved. The project now lives in
+the private repository `mohamedsamir825/NEXUS`, matching the root `package.json`
+name. The original public fork of the template is retired. This does not change
+the template's disposition — it remains quarantined in `apps/dashboard/` and
+undecided until Phase 14.
 
 ## Revisit when
 
