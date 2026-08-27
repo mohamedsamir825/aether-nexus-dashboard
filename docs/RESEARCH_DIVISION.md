@@ -96,6 +96,20 @@ placed inside a sentence about the subject, so extraction genuinely carries it
 into the result. The tests confirm it arrives as quoted, attributed evidence and
 that the tool belt, event trail and permission decisions are all unchanged.
 
+## Residual risk in synthesis
+
+One place deserves naming rather than glossing. Synthesis passes the
+deterministic summary — which quotes source text — to a model as a **user**
+message, with instructions in the **system** position. A determined injection
+in a source could therefore influence the *prose*.
+
+Its blast radius is bounded and worth stating precisely: no tools are offered
+on that call, so nothing can be invoked; the structured result is already final
+before synthesis runs, so claims, evidence, verifications and contradictions
+cannot be altered; and `synthesisFromModel` records that the prose was
+model-written. The claims remain the source of truth, and a reader who distrusts
+the prose can read them.
+
 ## Model usage
 
 The model layer is **optional by design**. Every stage before synthesis is

@@ -76,8 +76,37 @@ describe('contradiction primitives', () => {
   test('detects negation in English and Arabic', () => {
     expect(hasNegation('is not recovering')).toBe(true);
     expect(hasNegation('never recovered')).toBe(true);
+    expect(hasNegation("it isn't recovering")).toBe(true);
+    expect(hasNegation('no longer recovering')).toBe(true);
     expect(hasNegation('لم يتعافَ')).toBe(true);
+    expect(hasNegation('ليس هناك تعافٍ')).toBe(true);
     expect(hasNegation('is recovering')).toBe(false);
+  });
+
+  test.each([
+    'another source states the population is recovering',
+    'nothing in the data contradicts it',
+    'the notable finding is recovery',
+    'we note the population is recovering',
+    'notice the recovery',
+    'nevertheless the population recovered',
+  ])('does not mistake %p for a negation', (text) => {
+    // Substring matching made all of these read as negations: they contain
+    // "not" or "never" inside a longer word. Since agreement is commonly
+    // phrased "another source states...", that invented conflicts between
+    // claims that agreed.
+    expect(hasNegation(text)).toBe(false);
+  });
+
+  test('agreement phrasing never fabricates a conflict', () => {
+    const found = detectContradictions({
+      claims: [
+        claim({ id: claimId('a'), statement: 'One source states: the population is recovering.' }),
+        claim({ id: claimId('b'), statement: 'Another source notes the population is recovering.' }),
+      ],
+      now: fixedNow,
+    });
+    expect(found).toEqual([]);
   });
 
   test('reads numbers but ignores years, which are context not value', () => {

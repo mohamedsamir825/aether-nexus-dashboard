@@ -34,6 +34,23 @@ describe('arithmetic', () => {
     expect(value('2 ^ 3 ^ 2')).toBe(512);
   });
 
+  test('exponentiation binds tighter than unary minus', () => {
+    // -(2^2) = -4, the mathematical convention and what Python does. Excel
+    // reads this as (-2)^2 = 4; silently returning the wrong sign is the worst
+    // kind of bug because it looks like an answer.
+    expect(value('-2 ^ 2')).toBe(-4);
+    expect(value('(-2) ^ 2')).toBe(4);
+  });
+
+  test('a negative exponent still parses', () => {
+    expect(value('2 ^ -3')).toBe(0.125);
+  });
+
+  test('unary plus is accepted', () => {
+    expect(value('+5')).toBe(5);
+    expect(value('3 * +2')).toBe(6);
+  });
+
   test('subtraction stays left-associative', () => {
     expect(value('10 - 3 - 2')).toBe(5);
   });

@@ -15,8 +15,19 @@ type Token =
   | { kind: 'operator'; value: string }
   | { kind: 'paren'; value: '(' | ')' };
 
-const PRECEDENCE: Record<string, number> = { '+': 1, '-': 1, '*': 2, '/': 2, '%': 2, '^': 3, u: 4 };
+/**
+ * Exponentiation binds tighter than unary minus, so `-2^2` is -(2^2) = -4.
+ *
+ * The original table gave unary minus the highest precedence, which produced
+ * (-2)^2 = 4. That is Excel's reading; it is not mathematical convention, and
+ * it is not what Python or a scientific calculator does. For a package Finance
+ * will eventually use, silently returning the wrong sign is the worst kind of
+ * bug -- it looks like an answer.
+ */
+const PRECEDENCE: Record<string, number> = { '+': 1, '-': 1, '*': 2, '/': 2, '%': 2, u: 3, '^': 4 };
 const RIGHT_ASSOCIATIVE = new Set(['^', 'u']);
+/** Prefix operators take no left operand, so they never pop on the way in. */
+const PREFIX = new Set(['u', 'p']);
 
 function tokenize(input: string): Result<Token[]> {
   const tokens: Token[] = [];
@@ -48,10 +59,15 @@ function tokenize(input: string): Result<Token[]> {
     if ('+-*/%^'.includes(ch)) {
       // Unary minus: a '-' with no value before it negates rather than subtracts.
       const previous = tokens[tokens.length - 1];
-      const isUnary =
-        ch === '-' && (previous === undefined || previous.kind === 'operator' ||
-          (previous.kind === 'paren' && previous.value === '('));
-      tokens.push({ kind: 'operator', value: isUnary ? 'u' : ch });
+      const atPrefixPosition =
+        previous === undefined ||
+        previous.kind === 'operator' ||
+        (previous.kind === 'paren' && previous.value === '(');
+      const value =
+        atPrefixPosition && ch === '-' ? 'u'
+        : atPrefixPosition && ch === '+' ? 'p'
+        : ch;
+      tokens.push({ kind: 'operator', value });
       i += 1;
       continue;
     }
@@ -87,6 +103,11 @@ function toRpn(tokens: readonly Token[]): Result<Token[]> {
     }
 
     if (token.kind === 'operator') {
+      // A prefix operator binds to what follows it, so it pops nothing.
+      if (PREFIX.has(token.value)) {
+        operators.push(token);
+        continue;
+      }
       while (operators.length > 0) {
         const top = operators[operators.length - 1];
         if (!top || top.kind !== 'operator') break;
@@ -138,10 +159,10 @@ function evaluateRpn(rpn: readonly Token[]): Result<number> {
       return err(nexusError('INVALID_INPUT', 'malformed expression'));
     }
 
-    if (token.value === 'u') {
+    if (token.value === 'u' || token.value === 'p') {
       const operand = stack.pop();
       if (operand === undefined) return err(nexusError('INVALID_INPUT', 'malformed expression'));
-      stack.push(-operand);
+      stack.push(token.value === 'u' ? -operand : operand);
       continue;
     }
 

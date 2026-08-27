@@ -76,6 +76,14 @@ export function createLimitTracker(params: CreateLimitTrackerParams = {}): Limit
   const limits = params.limits ?? {};
   const states = new Map<string, ProviderState>();
 
+  const EMPTY: ProviderState = { requests: [], tokens: [], backoffUntil: 0 };
+
+  /** Read-only view. A query must not allocate: `status()` is called for every
+   *  provider on every routing decision, and allocating there would grow the
+   *  map with entries for providers that never took a request. */
+  const peek = (provider: ProviderId): ProviderState => states.get(provider) ?? EMPTY;
+
+  /** Write path. Only called when something is actually being recorded. */
   const stateOf = (provider: ProviderId): ProviderState => {
     const existing = states.get(provider);
     if (existing) return existing;
@@ -93,14 +101,19 @@ export function createLimitTracker(params: CreateLimitTrackerParams = {}): Limit
 
   function status(provider: ProviderId): ProviderLimitStatus {
     const now = clock.now().getTime();
-    const state = stateOf(provider);
-    prune(state, now);
+    const state = peek(provider);
 
     const limit = limits[provider] ?? {};
     const minuteAgo = now - MINUTE_MS;
-    const requestsLastMinute = state.requests.filter((at) => at > minuteAgo).length;
-    const requestsLastDay = state.requests.length;
-    const tokensLastDay = state.tokens.reduce((sum, t) => sum + t.count, 0);
+    const dayAgo = now - DAY_MS;
+    // Ageing is applied to the read rather than by mutating here, so a query
+    // stays a query. The write path prunes for real.
+    const inDay = state.requests.filter((at) => at > dayAgo);
+    const requestsLastMinute = inDay.filter((at) => at > minuteAgo).length;
+    const requestsLastDay = inDay.length;
+    const tokensLastDay = state.tokens
+      .filter((t) => t.at > dayAgo)
+      .reduce((sum, t) => sum + t.count, 0);
     const usage = { requestsLastMinute, requestsLastDay, tokensLastDay };
 
     if (state.backoffUntil > now) {
@@ -109,8 +122,7 @@ export function createLimitTracker(params: CreateLimitTrackerParams = {}): Limit
 
     if (limit.requestsPerMinute !== undefined && requestsLastMinute >= limit.requestsPerMinute) {
       // Available again once the oldest request in the window ages out.
-      const inWindow = state.requests.filter((at) => at > minuteAgo);
-      const oldest = inWindow[0];
+      const oldest = inDay.filter((at) => at > minuteAgo)[0];
       return {
         available: false,
         reason: 'requestsPerMinute',
@@ -120,7 +132,7 @@ export function createLimitTracker(params: CreateLimitTrackerParams = {}): Limit
     }
 
     if (limit.requestsPerDay !== undefined && requestsLastDay >= limit.requestsPerDay) {
-      const oldest = state.requests[0];
+      const oldest = inDay[0];
       return {
         available: false,
         reason: 'requestsPerDay',
@@ -130,7 +142,7 @@ export function createLimitTracker(params: CreateLimitTrackerParams = {}): Limit
     }
 
     if (limit.tokensPerDay !== undefined && tokensLastDay >= limit.tokensPerDay) {
-      const oldest = state.tokens[0];
+      const oldest = state.tokens.filter((t) => t.at > dayAgo)[0];
       return {
         available: false,
         reason: 'tokensPerDay',

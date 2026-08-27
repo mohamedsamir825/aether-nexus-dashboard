@@ -21,23 +21,73 @@
  */
 import { type Claim, type ClaimId, type Contradiction, contradictionId } from '@nexus/core';
 
-/** Negation markers, English and Arabic. */
-const NEGATIONS = [
-  'not', "n't", 'never', 'no longer', 'cannot', 'failed to', 'did not', 'does not',
-  'ليس', 'لا ', 'لم ', 'لن ', 'غير ',
-];
+/**
+ * Negation markers, matched as WHOLE WORDS.
+ *
+ * Substring matching was the original implementation and it was badly wrong:
+ * "another", "nothing", "notable", "note" and "notice" all contain "not", and
+ * "nevertheless" contains "never". Since agreement between sources is commonly
+ * phrased "another source states...", the detector invented conflicts between
+ * claims that agreed — the worst possible failure for a research system, which
+ * exists to be trusted about disagreement.
+ */
+const NEGATION_WORDS = new Set([
+  // English particles
+  'not', 'never', 'cannot', 'no', 'none', 'neither', 'nor',
+  // Arabic particles
+  'ليس', 'ليست', 'لا', 'لم', 'لن', 'غير',
+]);
 
-export function hasNegation(statement: string): boolean {
-  const lowered = statement.toLowerCase();
-  return NEGATIONS.some((marker) => lowered.includes(marker));
+/** Multi-word markers, matched against the tokenised statement. */
+const NEGATION_PHRASES = ['no longer', 'failed to', 'ruled out'];
+
+/** Unicode-aware word tokens. Diacritics are dropped with the marks class. */
+function words(text: string): string[] {
+  return text.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? [];
 }
 
-/** Numbers in a statement, ignoring years, which are usually context not value. */
+export function hasNegation(statement: string): boolean {
+  const tokens = words(statement);
+  for (const token of tokens) {
+    if (NEGATION_WORDS.has(token)) return true;
+    // Contractions: isn't, don't, wasn't ...
+    if (token.endsWith("n't")) return true;
+  }
+  const joined = ` ${tokens.join(' ')} `;
+  return NEGATION_PHRASES.some((phrase) => joined.includes(` ${phrase} `));
+}
+
+/**
+ * Numbers in a statement, normalised.
+ *
+ * A comma is a thousands separator when exactly three digits follow it
+ * ("1,234" is one thousand two hundred and thirty-four) and a decimal point
+ * otherwise ("2,5" is two and a half). Reading every comma as a decimal point
+ * was the original behaviour and it turned "1,234 seals" into 1.234 — so a
+ * source writing "1,234" and one writing "1234" were reported as CONFLICTING
+ * when they agreed exactly.
+ *
+ * Years are skipped: a date is context, not a quantity being asserted.
+ */
 export function numbersIn(statement: string): number[] {
-  const found = statement.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
+  const found = statement.match(/-?\d[\d.,]*/g) ?? [];
   return found
-    .map((raw) => Number(raw.replace(',', '.')))
-    .filter((n) => Number.isFinite(n) && !(n >= 1900 && n <= 2100 && Number.isInteger(n)));
+    .map(normaliseNumber)
+    .filter((n): n is number => n !== undefined)
+    .filter((n) => !(n >= 1900 && n <= 2100 && Number.isInteger(n)));
+}
+
+function normaliseNumber(raw: string): number | undefined {
+  let text = raw.replace(/[.,]$/, '');
+
+  // Grouped thousands: 1,234 or 1,234,567 (and the European 1.234.567).
+  if (/^-?\d{1,3}(,\d{3})+$/.test(text)) text = text.replace(/,/g, '');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(text)) text = text.replace(/\./g, '');
+  // Otherwise a lone comma is a decimal point.
+  else text = text.replace(',', '.');
+
+  const value = Number(text);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 export interface DetectOptions {
