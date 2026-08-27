@@ -65,14 +65,20 @@ export const financePolicy: PermissionPolicy = forAgent(
 );
 
 /**
- * Delegation and nothing else.
+ * Delegation, and its own memory scope. Nothing else.
  *
- * Business holds no tool capability, no memory scope and no retrieval. Every
- * input it has comes from another division's run, which is §5's boundary as a
- * permission set: it *cannot* price or retrieve, rather than being asked not to.
+ * Business holds no tool capability and no retrieval. Every input it has comes
+ * from another division's run, which is §5's boundary as a permission set: it
+ * *cannot* price or retrieve, rather than being asked not to.
+ *
+ * The memory grant is narrow in a way the capability name does not show: the
+ * scoped view handed to this agent is built over `business` alone, so
+ * `memory:read` here cannot reach Finance's vintages or Research's findings.
  */
 export const businessPolicy: PermissionPolicy = forAgent('nexus.business', 'business.strategy', [
   DISPATCH_CAPABILITY,
+  'memory:read',
+  'memory:write',
 ]);
 
 /**

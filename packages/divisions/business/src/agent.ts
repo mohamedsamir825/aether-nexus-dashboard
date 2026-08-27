@@ -18,6 +18,7 @@ import {
   type Claim,
   type Result,
   type RunId,
+  type ScopedVersionedMemory,
   agentId,
   divisionId,
   emptyUsage,
@@ -26,6 +27,7 @@ import {
   nexusError,
   ok,
 } from '@nexus/core';
+import { BUSINESS_MEMORY_SCOPE, rememberDeliberation } from './deliberation.ts';
 import { gatherInputs, citable } from './framing.ts';
 import { createOptionValidator } from './option-validator.ts';
 import type {
@@ -159,7 +161,25 @@ function narrate(set: Omit<OptionSet, 'narrative'>): string {
   return lines.join('\n');
 }
 
-export function createStrategyDirector(): AnyAgent {
+export interface StrategyDirectorOptions {
+  /**
+   * Durable framing history, pre-scoped by the composition root.
+   *
+   * `AgentContext.memory` carries the plain `ScopedMemory` surface, which has
+   * no `asOf` or `history`, and adding them would be a Core contract change.
+   * So the versioned view arrives here instead, already narrowed to Business's
+   * own scope with a capability checked on every access -- the same way
+   * Finance receives its ledger history.
+   *
+   * Absent means the division runs without remembering, exactly as it did
+   * before this slice. It never means "nothing was ever framed".
+   */
+  readonly versionedMemory?: ScopedVersionedMemory;
+}
+
+// Named `deps`, not `options`: in this division "option" already means a
+// strategic option, and two meanings one scope apart is how a real bug hides.
+export function createStrategyDirector(deps: StrategyDirectorOptions = {}): AnyAgent {
   const validator = createOptionValidator();
 
   return {
@@ -176,8 +196,10 @@ export function createStrategyDirector(): AnyAgent {
       // No tools of its own. Everything it needs belongs to another division,
       // and is reached by delegation rather than by borrowing a tool.
       tools: [],
-      capabilities: ['agent:dispatch'],
-      memoryScopes: [],
+      capabilities: ['agent:dispatch', 'memory:read', 'memory:write'],
+      // Its own division scope and no other. Business reads Research's facts
+      // and Finance's prices through delegation, never through their memory.
+      memoryScopes: [BUSINESS_MEMORY_SCOPE],
       modelPolicy: { requiredCapabilities: ['text'], allowFallback: true },
     },
 
@@ -264,6 +286,26 @@ export function createStrategyDirector(): AnyAgent {
       };
 
       const set: OptionSet = { ...partial, narrative: narrate(partial) };
+
+      // The framing is recorded -- and nothing beyond it. Whether anyone
+      // evaluated this set, chose from it, or saw a result stays unrecorded,
+      // because no source in NEXUS observes any of those (see deliberation.ts).
+      //
+      // Recorded even when every option was rejected: an archive holding only
+      // the framings that worked would make the record look better than it is,
+      // and `rejected` is on the stored set for a reader to see why.
+      if (deps.versionedMemory !== undefined) {
+        const remembered = await rememberDeliberation({
+          memory: deps.versionedMemory,
+          optionSet: set,
+          runId: String(runId),
+        });
+        // A failed write fails the run. Returning the set anyway would leave
+        // the caller holding a framing the archive has no record of, and a
+        // later KPI counting what is stored would undercount by exactly the
+        // runs nobody noticed had failed to persist.
+        if (!remembered.ok) return remembered;
+      }
 
       return ok({
         output: set,

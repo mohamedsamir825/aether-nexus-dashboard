@@ -49,7 +49,7 @@ import {
   type ScenarioSpec,
   type SensitivityModel,
 } from '@nexus/division-finance';
-import { createBusinessDivision } from '@nexus/division-business';
+import { BUSINESS_MEMORY_SCOPE, createBusinessDivision } from '@nexus/division-business';
 import { NEXUS_POLICIES } from './policy.ts';
 
 export interface AssembleParams {
@@ -76,6 +76,15 @@ export interface Nexus {
   readonly system: NexusSystem;
   /** Finance's versioned view, exposed so a caller can ask historical questions. */
   readonly financeHistory: ScopedVersionedMemory;
+  /**
+   * Business's versioned view over its own framings.
+   *
+   * Exposed for the same reason as Finance's: asking "what options were on the
+   * table in March" is a question about the archive, not about a run, and a
+   * caller with no way to ask it would have to re-run the division to find out
+   * -- which would answer with today's facts instead of March's.
+   */
+  readonly businessHistory: ScopedVersionedMemory;
   readonly divisions: readonly Division[];
 }
 
@@ -113,6 +122,16 @@ export function assembleNexus(params: AssembleParams): Result<Nexus> {
     permissions: system.permissions,
   });
 
+  // Built the same way, over Business's own scope alone. Two views over one
+  // store, each narrowed to one division: this is where scope isolation is
+  // actually decided, and giving either of them both scopes would undo it.
+  const businessHistory = createScopedVersionedMemory({
+    store: memoryStore,
+    subject: { kind: 'agent', id: 'business.strategy' },
+    scopes: [BUSINESS_MEMORY_SCOPE],
+    permissions: system.permissions,
+  });
+
   const divisions: readonly Division[] = [
     createResearchDivision({ retriever: params.retriever }),
     createFinanceDivision({
@@ -125,13 +144,13 @@ export function assembleNexus(params: AssembleParams): Result<Nexus> {
         ? { observedDrivers: params.observedDrivers }
         : {}),
     }),
-    createBusinessDivision(),
+    createBusinessDivision({ versionedMemory: businessHistory }),
   ];
 
   const installed = installAll(system, divisions);
   if (!installed.ok) return installed;
 
-  return ok({ system, financeHistory, divisions });
+  return ok({ system, financeHistory, businessHistory, divisions });
 }
 
 /**

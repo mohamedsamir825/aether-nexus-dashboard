@@ -158,9 +158,17 @@ describe('division contract', () => {
     expect(system.registries.agents.list()).toHaveLength(3);
   });
 
-  test('declares only the power to delegate', () => {
+  test('declares delegation and its own memory, and nothing else', () => {
     const { division } = { division: createBusinessDivision() };
-    expect(division.descriptor.requiredCapabilities).toEqual(['agent:dispatch']);
+    expect(division.descriptor.requiredCapabilities).toEqual([
+      'agent:dispatch',
+      'memory:read',
+      'memory:write',
+    ]);
+    // The three that would let Business do another division's job.
+    for (const forbidden of ['tool:execute', 'research:retrieve', 'finance:actuals']) {
+      expect(division.descriptor.requiredCapabilities).not.toContain(forbidden);
+    }
   });
 });
 

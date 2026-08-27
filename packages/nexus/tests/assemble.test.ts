@@ -323,15 +323,37 @@ describe('the standard policy is deny-by-default, per division', () => {
     if (!denied.ok) expect(denied.error.code).toBe('PERMISSION_DENIED');
   });
 
-  test('Business holds ONLY dispatch — it cannot price or retrieve', async () => {
+  test('Business holds dispatch and its OWN memory — it cannot price or retrieve', async () => {
     // §5's boundary as a permission set rather than as a rule to remember.
     const nexus = boot(tempDir());
     const subject = { kind: 'agent' as const, id: agentId('business.strategy') };
-    for (const capability of ['tool:execute', 'research:retrieve', 'finance:actuals', 'memory:write']) {
+    for (const capability of ['tool:execute', 'research:retrieve', 'finance:actuals']) {
       const denied = nexus.system.permissions.require({ subject, capability });
       expect(denied.ok, `business should not hold ${capability}`).toBe(false);
     }
     expect(nexus.system.permissions.require({ subject, capability: 'agent:dispatch' }).ok).toBe(true);
+    // It does hold memory:write -- and that is not a widening, because the
+    // view it holds is narrowed to one scope. The capability alone says
+    // nothing about reach; the next test is the one that pins the reach.
+    expect(nexus.system.permissions.require({ subject, capability: 'memory:write' }).ok).toBe(true);
+  });
+
+  test('the memory grant does not reach another division: Business cannot read Finance', async () => {
+    // The grant is `memory:read`, unqualified -- so what stops Business
+    // reading Finance's vintages is the scope its view was built over, not the
+    // capability name. Assert the thing that actually holds.
+    const nexus = boot(tempDir());
+    for (const scope of [
+      { kind: 'division' as const, id: 'finance' },
+      { kind: 'division' as const, id: 'research' },
+    ]) {
+      const trespass = await nexus.businessHistory.history(scope, 'anything');
+      expect(trespass.ok, `business should not read ${scope.id}`).toBe(false);
+      if (!trespass.ok) expect(trespass.error.code).toBe('PERMISSION_DENIED');
+    }
+    // And the reverse: Finance cannot read Business's framings.
+    const back = await nexus.financeHistory.history({ kind: 'division', id: 'business' }, 'anything');
+    expect(back.ok).toBe(false);
   });
 
   test('Research cannot read Finance actuals', async () => {

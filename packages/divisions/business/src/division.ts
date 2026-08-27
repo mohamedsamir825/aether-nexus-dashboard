@@ -8,13 +8,16 @@
  *
  * That it registers no tool is worth noticing rather than glossing: a division
  * whose entire job is framing other divisions' outputs should not hold any
- * capability of its own, and this one does not.
+ * execution capability of its own, and this one does not. What it does hold is
+ * its own memory scope -- it has to remember the framings it presented, since
+ * every §5 KPI is eventually computed over them.
  */
 import {
   type Division,
   type DivisionDescriptor,
   type DivisionInstaller,
   type Result,
+  type ScopedVersionedMemory,
   ok,
 } from '@nexus/core';
 import {
@@ -35,18 +38,24 @@ export const businessDescriptor: DivisionDescriptor = {
   // §5 lists ten roles. One is implemented, so one is claimed.
   agents: [BUSINESS_STRATEGY_ID],
   entryPoints: [BUSINESS_STRATEGY_ROLE],
-  // Only the power to delegate. No tool execution, no memory, no retrieval:
-  // the blast radius of a division that only frames should be small enough to
-  // read in one line.
-  requiredCapabilities: ['agent:dispatch'],
+  // Delegation, and its own memory scope. Still no `tool:execute`, no
+  // `research:retrieve` and no `finance:actuals`: Business cannot run a tool,
+  // read a corpus or touch actuals, and that is a missing grant rather than a
+  // comment asking it not to.
+  requiredCapabilities: ['agent:dispatch', 'memory:read', 'memory:write'],
 };
 
-export function createBusinessDivision(): Division {
+export interface CreateBusinessDivisionOptions {
+  /** Durable framing history. Absent means this division runs without memory. */
+  readonly versionedMemory?: ScopedVersionedMemory;
+}
+
+export function createBusinessDivision(options: CreateBusinessDivisionOptions = {}): Division {
   return {
     descriptor: businessDescriptor,
 
     install(installer: DivisionInstaller): Result<void> {
-      const agent = installer.registerAgent(createStrategyDirector());
+      const agent = installer.registerAgent(createStrategyDirector(options));
       if (!agent.ok) return agent;
       return ok(undefined);
     },
