@@ -1,0 +1,12 @@
+{
+  "name": "@nexus/tool-arithmetic",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Safe arithmetic evaluation as a NEXUS Tool. No eval, no dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "bun test", "typecheck": "tsc --noEmit" },
+  "dependencies": { "@nexus/core": "workspace:*" }
+}

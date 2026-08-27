@@ -25,6 +25,10 @@ jobs:
       - name: Test
         run: bun test packages
 
+      # The slice must keep crossing every layer. It exits non-zero on failure.
+      - name: Vertical slice
+        run: bun run demo
+
       # The foundation must start and report honestly. It exits non-zero while
       # no provider adapter is registered, which is the expected state today --
       # so assert the report is produced, not that the system is healthy.

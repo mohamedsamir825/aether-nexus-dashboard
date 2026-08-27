@@ -15,5 +15,8 @@
     "typecheck": "tsc --noEmit",
     "health": "bun run src/bin/health.ts",
     "contracts:baseline": "bun run scripts/contract-baseline.ts"
+  },
+  "devDependencies": {
+    "@nexus/tool-arithmetic": "workspace:*"
   }
 }

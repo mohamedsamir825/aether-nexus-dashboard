@@ -9,14 +9,16 @@
   "workspaces": [
     "packages/*",
     "packages/providers/*",
+    "packages/tools/*",
     "apps/*"
   ],
   "scripts": {
     "test": "bun test packages",
-    "typecheck": "tsc --noEmit -p packages/core && tsc --noEmit -p packages/providers/openai-compatible && tsc --noEmit -p packages/providers/google && tsc --noEmit -p apps/dashboard",
+    "typecheck": "tsc --noEmit -p packages/core && tsc --noEmit -p packages/providers/openai-compatible && tsc --noEmit -p packages/providers/google && tsc --noEmit -p packages/tools/arithmetic && tsc --noEmit -p apps/dashboard",
     "health": "bun run packages/core/src/bin/health.ts",
     "dashboard:dev": "bun run --filter '@nexus/dashboard' dev",
-    "dashboard:build": "bun run --filter '@nexus/dashboard' build"
+    "dashboard:build": "bun run --filter '@nexus/dashboard' build",
+    "demo": "bun run packages/core/src/bin/demo.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.4.0",
